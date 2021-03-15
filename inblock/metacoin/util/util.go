@@ -5,21 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"hash"
-	"io"
 	"math/big"
-	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"encoding/asn1"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 
 	"crypto/ecdsa"
-	"crypto/md5"
-	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
 	"hash/crc32"
@@ -41,17 +35,6 @@ func MakeRandomString(n int) string {
 		b[i] = charset[n.Int64()]
 	}
 	return string(b)
-}
-
-func GetMD5(data string) string {
-	h := md5.New()
-	io.WriteString(h, data)
-	return fmt.Sprintf("%x", h.Sum(nil))
-}
-
-func GenerateKey(prefix string, data []string) string {
-	prefix = prefix + "000000"
-	return fmt.Sprintf("%6s_%s", prefix[:6], GetMD5(strings.Join(data, "|")))
 }
 
 // EcdsaSignVerify : ecdsa signature verify
@@ -78,7 +61,7 @@ func EcdsaSignVerify(PublicKeyPem, Data, Sign string) error {
 			var buf = make([]string, 3)
 			buf[0] = PublicKeyPem[0:26]
 			buf[1] = PublicKeyPem[26:dt]
-			buf[2] = PublicKeyPem[dt:]
+			buf[2] = PublicKeyPem[dt:len(PublicKeyPem)]
 			PublicKeyPem = strings.Join(buf, "\n")
 		}
 		block, _ = pem.Decode([]byte(PublicKeyPem))
@@ -104,140 +87,27 @@ func EcdsaSignVerify(PublicKeyPem, Data, Sign string) error {
 		return errors.New("2110,PublicKey format error")
 	}
 
+	switch pubkey.Curve.Params().BitSize {
+	case 384:
+		hasher = sha512.New384()
+		break
+	case 521:
+		hasher = sha512.New()
+		break
+	default:
+		return errors.New("2220,Invalid public key curve")
+	}
+
 	if _, err = asn1.Unmarshal(signature, &esig); err != nil {
 		return errors.New("2230,Signature format error - " + err.Error())
 	}
 
-	hasher = sha512.New384() // for OPENSSL_ALGO_SHA384
 	hasher.Write([]byte(data))
 	if ecdsa.Verify(pubkey, hasher.Sum(nil), esig.R, esig.S) {
 		return nil
-	}
-
-	hasher = sha512.New() // for OPENSSL_ALGO_SHA512
-	hasher.Write([]byte(data))
-	if ecdsa.Verify(pubkey, hasher.Sum(nil), esig.R, esig.S) {
-		return nil
-	}
-
-	hasher = sha256.New() // for OPENSSL_ALGO_SHA256
-	hasher.Write([]byte(data))
-	if ecdsa.Verify(pubkey, hasher.Sum(nil), esig.R, esig.S) {
-		return nil
-	}
-
-	return errors.New("2010,Invalid signature")
-}
-
-// DataAssign string length check and return trimming
-func DataAssign(src string, dest *string, dataType string, minLength int, maxLength int, allowEmpty bool) error {
-	var err error
-	var u *url.URL
-	buf := strings.TrimSpace(src)
-
-	// input data is null string.
-	if len(buf) == 0 {
-		// allow clear
-		if minLength == 0 {
-			*dest = buf
-			return nil
-		}
-		// allow empay for not update
-		if allowEmpty == true {
-			return nil
-		}
-	}
-
-	if dataType == "address" {
-		if len(strings.TrimSpace(buf)) != 40 {
-			return errors.New("not address")
-		}
-		if buf[:2] != "MT" {
-			return errors.New("not address")
-		}
-
-		calcCRC := fmt.Sprintf("%08x", crc32.Checksum([]byte(buf[2:32]), crc32.MakeTable(crc32.IEEE)))
-		if buf[32:] != calcCRC {
-			return errors.New("not address")
-		}
-	} else if dataType == "url" {
-		if u, err = url.ParseRequestURI(buf); err != nil {
-			return errors.New("invalid url")
-		}
-
-		if u.Scheme != "http" && u.Scheme != "https" {
-			return errors.New("scheme is must http or https")
-		}
-		if len(buf) > maxLength {
-			return errors.New("too long")
-		}
-	} else if dataType == "id" {
-		r, _ := regexp.Compile("^[a-zA-Z0-9]{" + strconv.Itoa(minLength) + "," + strconv.Itoa(maxLength) + "}$")
-		if r.MatchString(buf) == false {
-			return errors.New("not valid data")
-		}
 	} else {
-		if len(buf) < minLength {
-			return errors.New("too short")
-		}
-
-		if len(buf) > maxLength {
-			return errors.New("too long")
-		}
+		return errors.New("2010,Invalid signature")
 	}
-
-	if dest != nil {
-		*dest = buf
-	}
-	return nil
-}
-
-// NumericDataCheck string length check and return trimming
-func NumericDataCheck(src string, dest *string, minValue string, maxValue string, maxDecimal int, allowEmpty bool) error {
-	var err error
-	var dmin, dmax, dsrc decimal.Decimal
-
-	buf := strings.TrimSpace(src)
-	if allowEmpty == true && len(buf) == 0 {
-		return nil
-	}
-
-	if maxDecimal > 0 {
-		r, _ := regexp.Compile("^[-]?[0-9]+(|(\\.[0-9]{1," + strconv.Itoa(maxDecimal) + "}))$")
-		if r.MatchString(buf) == false {
-			return errors.New(" is invalid data")
-		}
-	} else {
-		r, _ := regexp.Compile("^[-]?[0-9]+$")
-		if r.MatchString(buf) == false {
-			return errors.New(" is invalid data")
-		}
-	}
-
-	if dmin, err = decimal.NewFromString(minValue); err != nil {
-		return errors.New(" minValue invalid")
-	}
-
-	if dmax, err = decimal.NewFromString(maxValue); err != nil {
-		return errors.New(" maxValue invalid")
-	}
-
-	if dsrc, err = decimal.NewFromString(buf); err != nil {
-		return err
-	}
-
-	if dsrc.Cmp(dmin) < 0 {
-		return errors.New(" must be bigger then " + minValue)
-	}
-
-	if dsrc.Cmp(dmax) > 0 {
-		return errors.New(" must be smaller then " + maxValue)
-	}
-
-	if dest != nil {
-		*dest = buf
-	}
-	return nil
 }
 
 // IsAddress - address check
@@ -274,19 +144,6 @@ func Strtoint64(data string) (int64, error) {
 		return 0, errors.New("9900,Data [" + data + "] is not integer")
 	}
 	return i64, nil
-}
-
-// GetOrdNumber number to ord
-func GetOrdNumber(idx int) string {
-	if idx == 1 {
-		return strconv.Itoa(idx) + "st"
-	} else if idx == 2 {
-		return strconv.Itoa(idx) + "nd"
-	} else if idx == 3 {
-		return strconv.Itoa(idx) + "rd"
-	} else {
-		return strconv.Itoa(idx) + "th"
-	}
 }
 
 // RemoveElement slice element
@@ -345,13 +202,4 @@ func ParseNotNegative(s string) (decimal.Decimal, error) {
 		return d, errors.New("1101," + s + " is negative.")
 	}
 	return d, nil
-}
-
-// JSONEncode simple
-func JSONEncode(v interface{}) string {
-	if argdat, err := json.Marshal(v); err == nil {
-		return string(argdat)
-	} else {
-		return ""
-	}
 }

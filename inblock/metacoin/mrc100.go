@@ -164,8 +164,7 @@ func Mrc100Log(stub shim.ChaincodeStubInterface, key, token, logger, log, signat
 		JobType: "MRC100LOG",
 		JobArgs: log}
 
-	dat, err = stub.GetState(key)
-	if err == nil && dat != nil {
+	if dat, err = stub.GetState(key); err == nil && dat != nil {
 		return "", errors.New("6013,MRC100 already exists")
 	}
 

@@ -93,13 +93,99 @@ type Token struct {
 	Reserve        []TokenReserve   `json:"reserve"`
 	Tier           []TokenTier      `json:"tier"`
 	Status         string           `json:"status"` // editable - wait, iter-n, pause,
-	JobType        string           `json:"job_type"`
-	JobArgs        string           `json:"job_args"`
-	JobDate        int64            `json:"jobdate"`
 	TargetToken    map[int]int64    `json:"targettoken"`
 	BaseToken      int              `json:"basetoken"`
 	Type           string           `json:"type"`
 	Logger         map[string]int64 `json:"logger"`
+	JobType        string           `json:"job_type"`
+	JobArgs        string           `json:"job_args"`
+	JobDate        int64            `json:"jobdate"`
+}
+
+// PricePair - 금액, 토큰
+type PricePair struct {
+	Amount string `json:"amount"`
+	Token  string `json:"token"`
+}
+
+// MRC400 for NFT Item project
+type MRC400 struct {
+	Owner        string `json:"owner"`
+	CreateDate   int64  `json:"createdate"` // read only
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	ImageURL     string `json:"image_url"`
+	Category     string `json:"category"`
+	Description  string `json:"description"`
+	ItemURL      string `json:"item_url"`
+	ItemImageURL string `json:"item_image_url"`
+	Data         string `json:"data"`
+	AllowToken   string `json:"allow_token"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
+}
+
+// MRC401 for NFT ITEM
+type MRC401 struct {
+	Owner                string `json:"owner"`           // 소유자
+	MRC400               string `json:"mrc400"`          // MRC400 ID
+	ItemURL              string `json:"item_url"`        // item description URL
+	ItemImageURL         string `json:"item_image_url"`  // image url
+	GroupID              string `json:"groupid"`         // group id
+	CreateDate           int64  `json:"createdate"`      // read only
+	InititalReserve      string `json:"initial_reserve"` // 초기 판매 금액
+	InititalToken        string `json:"initial_token"`   // 초기 판매 토큰
+	MeltingFee           string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
+	Transferable         string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	SellFee              string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
+	SellPrice            string `json:"sell_price"`      // 판매 금액
+	SellToken            string `json:"sell_token"`      // 판매 토큰
+	SellDate             int64  `json:"sell_date"`       // 판매 시작 일시 0 이면 미 판매
+	MeltingDate          int64  `json:"melting_date"`    // Write Once 삭제 일시 0 이면 미 삭제,
+	JobType              string `json:"job_type"`
+	JobArgs              string `json:"job_args"`
+	JobDate              int64  `json:"jobdate"`
+	AuctionDate          int64  `json:"auction_date"`           // 경매 시작 일시
+	AuctionEnd           int64  `json:"auction_end"`            // 경매 종료 일시
+	AuctionToken         string `json:"auction_token"`          // 경매 가능 토큰
+	AuctionBiddingUnit   string `json:"auction_bidding_unit"`   // 경매 입찰 단위
+	AuctionStartPrice    string `json:"auction_start_price"`    // 경매 시작 금액
+	AuctionBuyNowPrice   string `json:"auction_buynow_price"`   // 경매 즉시 구매 금액
+	AuctionCurrentPrice  string `json:"auction_current_price"`  // 경매 현 금액
+	AuctionCurrentBidder string `json:"auction_current_bidder"` // 현재 입찰자
+}
+
+// MRC401job for NFT ITEM create
+type MRC401job struct {
+	MRC400          string `json:"mrc400"`          // MRC400 ID
+	ItemID          string `json:"item_id"`         // MRC401 Item ID
+	ItemURL         string `json:"item_url"`        // item description URL
+	ItemImageURL    string `json:"item_image_url"`  // image url
+	GroupID         string `json:"groupid"`         // group id
+	CreateDate      int64  `json:"createdate"`      // read only
+	InititalReserve string `json:"initial_reserve"` // 초기 판매 금액
+	InititalToken   string `json:"initial_token"`   // 초기 판매 토큰
+	MeltingFee      string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
+	Transferable    string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	SellFee         string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
+}
+
+// MRC401Sell for NFT ITEM sell
+type MRC401Sell struct {
+	ItemID    string `json:"id"` // MRC401 Item ID
+	SellPrice string `json:"amount"`
+	SellToken string `json:"token"` // read only 이체 수수료 비율(0.0001~ 99.9999%)
+}
+
+// MRC401Auction for NFT ITEM auction
+type MRC401Auction struct {
+	ItemID             string `json:"id"`      // MRC401 Item ID
+	AuctionEnd         int64  `json:"end"`     // 경매 종료 일시
+	AuctionToken       string `json:"token"`   // 경매 가능 토큰
+	AuctionBiddingUnit string `json:"bidding"` // 경매 입찰 단위
+	AuctionStartPrice  string `json:"start"`   // 경매 시작 금액
+	AuctionBuyNowPrice string `json:"buynow"`  // 경매 즉시 구매 금액
 }
 
 // TokenReserve token ico reserve
@@ -107,6 +193,16 @@ type TokenReserve struct {
 	Address    string `json:"address"`
 	Value      string `json:"value"`
 	UnlockDate int64  `json:"unlockdate"`
+}
+
+// MultiTransferList for multi transfer struct
+type MultiTransferList struct {
+	Address    string `json:"address"`
+	Amount     string `json:"amount"`
+	TokenID    string `json:"tokenid"`
+	UnlockDate string `json:"unlockdate"`
+	Tag        string `json:"tag"`
+	Memo       string `json:"memo"`
 }
 
 // TokenTier token ico tier

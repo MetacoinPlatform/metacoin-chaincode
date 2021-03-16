@@ -1,0 +1,12 @@
+CVS
+CVS/*
+.cvsignore
+inblock/CVS
+inblock/CVS/*
+inblock/metacoin/CVS
+inblock/metacoin/CVS/*
+inblock/metacoin/mtc/CVS
+inblock/metacoin/mtc/CVS/*
+inblock/metacoin/util/CVS
+inblock/metacoin/util/CVS/*
+MetaCoin.exe

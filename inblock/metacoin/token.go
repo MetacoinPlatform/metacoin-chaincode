@@ -31,11 +31,11 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 	}
 
 	// data check
-	if len(strings.TrimSpace(tk.Symbol)) < 1 {
+	if len(tk.Symbol) < 1 {
 		return "", errors.New("1002,Symbol is empty")
 	}
 
-	if len(strings.TrimSpace(tk.Name)) < 1 {
+	if len(tk.Name) < 1 {
 		return "", errors.New("1001,Name is empty")
 	}
 
@@ -325,17 +325,17 @@ func TokenUpdate(stub shim.ChaincodeStubInterface, TokenID, url, info, image, si
 
 	isUpdate = false
 
-	if len(strings.TrimSpace(url)) > 0 && tk.URL != url {
+	if len(url) > 0 && tk.URL != url {
 		tk.URL = url
 		isUpdate = true
 	}
 
-	if len(strings.TrimSpace(info)) > 0 && tk.Information != info {
+	if len(info) > 0 && tk.Information != info {
 		tk.Information = info
 		isUpdate = true
 	}
 
-	if len(strings.TrimSpace(image)) > 0 && tk.Image != image {
+	if len(image) > 0 && tk.Image != image {
 		tk.Image = image
 		isUpdate = true
 	}

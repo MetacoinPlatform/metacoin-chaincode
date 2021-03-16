@@ -10,6 +10,7 @@ version 2.0		2020-11-07
 
 */
 import (
+	"log"
 	"fmt"
 	"strings"
 
@@ -19,6 +20,12 @@ import (
 	"inblock/metacoin"
 	"inblock/metacoin/util"
 )
+
+type serverConfig struct {
+	CCID    string
+	Address string
+}
+
 
 // MetacoinChainCode dummy struct for init
 type MetacoinChainCode struct {
@@ -131,6 +138,24 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 
 		// base.go
 		err = metacoin.Transfer(stub, fromAddr, toAddr, amount, tokenID, unlockdate, sign, tkey, args)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "multitransfer":
+		if len(args) < 5 {
+			return shim.Error("1000,multitransfer operation must include four arguments : fromAddr, transferlist, tokenID, signature, tkey")
+		}
+
+		fromAddr := args[0]
+		transferlist := args[1]
+		tokenID := args[2]
+		sign := args[3]
+		tkey = args[4]
+
+		// base.go
+		err = metacoin.MultiTransfer(stub, fromAddr, transferlist, tokenID, sign, tkey, args)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -587,7 +612,22 @@ func (t *MetacoinChainCode) Init(stub shim.ChaincodeStubInterface) peer.Response
 }
 
 func main() {
-	if err := shim.Start(new(MetacoinChainCode)); err != nil {
-		fmt.Printf("Error starting chaincode: %s\n", err)
+	// See chaincode.env.example
+	config := serverConfig{
+		CCID:    "metacoin_2.0.2:20686d14decf0f62800379503a3103f6119b61cbdbb07027b599c212776f7e36",
+		Address: "0.0.0.0:7049",
+	}
+
+	server := &shim.ChaincodeServer{
+		CCID:    config.CCID,
+		Address: config.Address,
+		CC:      new (MetacoinChainCode),
+		TLSProps: shim.TLSProperties{
+			Disabled: true,
+		},
+	}
+
+	if err := server.Start(); err != nil {
+		log.Panicf("error starting metacoin chaincode: %s", err)
 	}
 }

@@ -93,13 +93,13 @@ type Token struct {
 	Reserve        []TokenReserve   `json:"reserve"`
 	Tier           []TokenTier      `json:"tier"`
 	Status         string           `json:"status"` // editable - wait, iter-n, pause,
-	JobType        string           `json:"job_type"`
-	JobArgs        string           `json:"job_args"`
-	JobDate        int64            `json:"jobdate"`
 	TargetToken    map[int]int64    `json:"targettoken"`
 	BaseToken      int              `json:"basetoken"`
 	Type           string           `json:"type"`
 	Logger         map[string]int64 `json:"logger"`
+	JobType        string           `json:"job_type"`
+	JobArgs        string           `json:"job_args"`
+	JobDate        int64            `json:"jobdate"`
 }
 
 // TokenReserve token ico reserve
@@ -107,6 +107,16 @@ type TokenReserve struct {
 	Address    string `json:"address"`
 	Value      string `json:"value"`
 	UnlockDate int64  `json:"unlockdate"`
+}
+
+// MultiTransferList for multi transfer struct
+type MultiTransferList struct {
+	Address    string `json:"address"`
+	Amount     string `json:"amount"`
+	TokenID    string `json:"tokenid"`
+	UnlockDate string `json:"unlockdate"`
+	Tag        string `json:"tag"`
+	Memo       string `json:"memo"`
 }
 
 // TokenTier token ico tier

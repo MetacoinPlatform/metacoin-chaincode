@@ -32,7 +32,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 
 	mcData := mtc.MetaWallet{Regdate: time.Now().Unix(),
 		Addinfo:  addinfo,
-		Password: strings.TrimSpace(publicKey),
+		Password: publicKey,
 		JobDate:  time.Now().Unix(),
 		JobType:  "NewWallet",
 		Nonce:    util.MakeRandomString(40),
@@ -64,6 +64,10 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 	if block == nil {
 		if strings.Index(publicKey, "\n") == -1 {
 			var dt = len(publicKey) - 24
+			if dt <  26 {
+				return "", errors.New("3103,Public key decode error " + publicKey)
+			}
+			fmt.Sprintf("Key DATA [%s]", publicKey)
 			var buf = make([]string, 3)
 			buf[0] = publicKey[0:26]
 			buf[1] = publicKey[26:dt]
@@ -94,6 +98,8 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 	}
 
 	switch pubkey.Curve.Params().BitSize {
+	case 256:
+		break
 	case 384:
 		break
 	case 521:
@@ -382,6 +388,87 @@ func Transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, transferAmount
 		return err
 	}
 	fmt.Printf("Transfer [%s] => [%s]  / Amount : [%s] TokenID : [%s] UnlockDate : [%s]\n", fromAddr, toAddr, transferAmount, token, unlockdate)
+	return nil
+}
+
+// MultiTransfer send token to multi address
+func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, token, signature, tkey string, args []string) error {
+	var err error
+	var fromData, toData mtc.MetaWallet
+	var iUnlockDate int64
+	var target []mtc.MultiTransferList
+	var to_list map[string]int
+
+	if util.IsAddress(fromAddr) {
+		return errors.New("3001,Invalid from address")
+	}
+	if fromData, err = GetAddressInfo(stub, fromAddr); err != nil {
+		return err
+	}
+	if err = NonceCheck(&fromData, tkey,
+		strings.Join([]string{fromAddr, transferlist, token, tkey}, "|"),
+		signature); err != nil {
+		return err
+	}
+
+	if err = json.Unmarshal([]byte(transferlist), &target); err != nil {
+		return errors.New("3290,Question is in the wrong data")
+	}
+
+	if _, _, err = GetToken(stub, token); err != nil {
+		return err
+	}
+	if len(target) < 1 {
+		return errors.New("3002, There are no multiple transmission recipients.")
+	}
+
+	if len(target) > 100 {
+		return errors.New("3002,There must be 100 or fewer recipients of multitransfer")
+	}
+
+	to_list = make(map[string]int)
+	for _, ele := range target {
+		if util.IsAddress(ele.Address) {
+			return errors.New("3002,Invalid to address")
+		}
+		if _, exists := to_list[ele.Address]; exists != false {
+			return errors.New("6100, [" + ele.Address + "] already exists on the transfer list.")
+		}
+		to_list[ele.Address] = 1
+		if fromAddr == ele.Address {
+			return errors.New("3201,From address and to address must be different values")
+		}
+
+		if iUnlockDate, err = util.Strtoint64(ele.UnlockDate); err != nil {
+			return errors.New("1102,Invalid unlock date")
+		}
+
+		if toData, err = GetAddressInfo(stub, ele.Address); err != nil {
+			return err
+		}
+
+		if err = MoveToken(stub, &fromData, &toData, token, ele.Amount, iUnlockDate); err != nil {
+			if strings.Index(err.Error(), "5000,") == 0 {
+				return errors.New("5001,The balance of fromuser is insufficient")
+			}
+			return err
+		}
+		if len(ele.Tag) > 64 {
+			ele.Tag = ele.Tag[0:64]
+		}
+		if len(ele.Memo) > 2048 {
+			ele.Memo = ele.Memo[0:2048]
+		}
+
+		if err = SetAddressInfo(stub, ele.Address, toData, "receive", []string{fromAddr, ele.Address, ele.Amount, token, signature, ele.UnlockDate, ele.Tag, ele.Memo, tkey}); err != nil {
+			return err
+		}
+		fmt.Printf("Transfer [%s] => [%s]  / Amount : [%s] TokenID : [%s] UnlockDate : [%s]\n", fromAddr, ele.Address, ele.Amount, token, ele.UnlockDate)
+
+	}
+	if err = SetAddressInfo(stub, fromAddr, fromData, "multi_transfer", args); err != nil {
+		return err
+	}
 	return nil
 }
 

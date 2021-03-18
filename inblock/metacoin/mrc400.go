@@ -63,6 +63,9 @@ func Mrc400Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, 
 	if err = util.DataAssign(allowtoken, &MRC400ProjectData.AllowToken, "string", 1, 128, false); err != nil {
 		return errors.New("3005,AllowToken must be 1 to 128 characters long")
 	}
+	if err = util.DataAssign(data, &MRC400ProjectData.Data, "string", 0, 4096, false); err != nil {
+		return errors.New("3005,Data must be 0 to 4096 characters long")
+	}
 
 	// allow token error
 	if _, _, err = GetToken(stub, allowtoken); err != nil {
@@ -157,11 +160,11 @@ func Mrc400Update(stub shim.ChaincodeStubInterface, mrc400id, name, url, imageur
 	if err = util.DataAssign(itemimageurl, &MRC400ProjectData.ItemImageURL, "url", 1, 255, true); err != nil {
 		return errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
 	}
-	if err = util.DataAssign(data, &MRC400ProjectData.Data, "string", 1, 4096, true); err != nil {
-		return errors.New("3005,Data must be 1 to 4096 characters long")
-	}
 	if err = util.DataAssign(allowtoken, &MRC400ProjectData.AllowToken, "string", 1, 128, false); err != nil {
 		return errors.New("3005,AllowToken must be 1 to 128 characters long")
+	}
+	if err = util.DataAssign(data, &MRC400ProjectData.Data, "string", 1, 4096, true); err != nil {
+		return errors.New("3005,Data must be 1 to 4096 characters long")
 	}
 
 	// allow token error
@@ -276,8 +279,9 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	var MRC401Job []mtc.MRC401job
 	var MRC401ItemData mtc.MRC401
 	var data []byte
-
 	var logData []mtc.MRC401Sell
+
+	var keyCheck map[string]int
 
 	// get project(mrc400)
 	if mrc400, err = Mrc400get(stub, mrc400id); err != nil {
@@ -308,10 +312,14 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	createTotal = make(map[string]decimal.Decimal)
 	now = time.Now().Unix()
 	logData = make([]mtc.MRC401Sell, 0, 100)
+	keyCheck = make(map[string]int, len(MRC401Job))
+
 	for index := range MRC401Job {
 
-		// item check & save
-		fmt.Printf("Key exists check [%s]\n", mrc400id+"_"+MRC401Job[index].ItemID)
+		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists != false {
+			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
+		}
+		keyCheck[MRC401Job[index].ItemID] = 0
 
 		data, err = stub.GetState(mrc400id + "_" + MRC401Job[index].ItemID)
 		if err != nil {
@@ -438,6 +446,8 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	var data []byte
 	var logData []string
 
+	var keyCheck map[string]int
+
 	// get project(mrc400)
 	if mrc400, err = Mrc400get(stub, mrc400id); err != nil {
 		return err
@@ -464,8 +474,14 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 		return errors.New("3002,There must be 100 or fewer create item")
 	}
 
+	keyCheck = make(map[string]int, len(MRC401Job))
 	logData = make([]string, 0, 100)
 	for index := range MRC401Job {
+		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists != false {
+			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
+		}
+		keyCheck[MRC401Job[index].ItemID] = 0
+
 		data, err = stub.GetState(mrc400id + "_" + MRC401Job[index].ItemID)
 		if err != nil {
 			fmt.Printf("Mrc401Create stub.GetState(key) [%s] Error %s\n", mrc400id+"_"+MRC401Job[index].ItemID, err)
@@ -519,12 +535,18 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 			return errors.New("3005," + MRC401Job[index].ItemID + " item MeltingFee error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401ItemData.Transferable, "string", 1, 128, false); err != nil {
-			return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
-		}
+		if MRC401ItemData.Transferable != "Temprary" {
+			if MRC401Job[index].Transferable != MRC401ItemData.Transferable {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value cannot be change")
+			}
+		} else {
+			if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401ItemData.Transferable, "string", 1, 128, false); err != nil {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
+			}
 
-		if MRC401ItemData.Transferable != "Permanent" && MRC401ItemData.Transferable != "Bound" && MRC401ItemData.Transferable != "Temprary" {
-			return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
+			if MRC401ItemData.Transferable != "Permanent" && MRC401ItemData.Transferable != "Bound" && MRC401ItemData.Transferable != "Temprary" {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
+			}
 		}
 
 		if err = mrc401set(stub, mrc400id+"_"+MRC401Job[index].ItemID, MRC401ItemData, "mrc401_update", []string{mrc400id + "_" + MRC401Job[index].ItemID, MRC400ProjectData.Owner, MRC401ItemData.InititalReserve, MRC401ItemData.InititalToken, signature, tkey}); err != nil {
@@ -546,7 +568,7 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	// - for update balance
 	// - for nonce update
 
-	if err = SetAddressInfo(stub, MRC400ProjectData.Owner, projectOwnerWallet, "mrc401create", []string{mrc400id, MRC400ProjectData.Owner,
+	if err = SetAddressInfo(stub, MRC400ProjectData.Owner, projectOwnerWallet, "mrc401update", []string{mrc400id, MRC400ProjectData.Owner,
 		util.JSONEncode(logData),
 		signature, tkey}); err != nil {
 		return err
@@ -559,6 +581,8 @@ func Mrc401Transfer(stub shim.ChaincodeStubInterface, mrc401id, fromAddr, toAddr
 	var err error
 	var ownerWallet mtc.MetaWallet
 	var MRC401ItemData mtc.MRC401
+	var MRC400ProjectData mtc.MRC400
+	var mrc400 string
 	var mrc401 string
 
 	// get item
@@ -571,8 +595,20 @@ func Mrc401Transfer(stub shim.ChaincodeStubInterface, mrc401id, fromAddr, toAddr
 
 	// item transferable ?
 	if MRC401ItemData.Transferable == "Bound" {
-		return errors.New("5002,MRC401 [" + mrc401id + "] is not transferable")
+
+		// get project
+		if mrc400, err = Mrc400get(stub, MRC401ItemData.MRC400); err != nil {
+			return err
+		}
+		if err = json.Unmarshal([]byte(mrc400), &MRC400ProjectData); err != nil {
+			return errors.New("3004,MRC400 [" + MRC401ItemData.MRC400 + "] is in the wrong data")
+		}
+
+		if MRC401ItemData.Owner != MRC400ProjectData.Owner {
+			return errors.New("5002,MRC401 [" + mrc401id + "] is not transferable")
+		}
 	}
+
 	if MRC401ItemData.SellDate > 0 {
 		return errors.New("3004,MRC401 [" + mrc401id + "] is already sale")
 	}
@@ -681,6 +717,14 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 		if MRC401ItemData.AuctionDate > 0 {
 			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] is already auction")
 		}
+
+		// item transferable ?
+		if MRC401ItemData.Transferable == "Bound" {
+			if MRC401ItemData.Owner != MRC400ProjectData.Owner {
+				return errors.New("5002,MRC401 [" + MRC401SellData[index].ItemID + "] is cannot be sold")
+			}
+		}
+
 		// sell price check
 		if err = util.NumericDataCheck(MRC401SellData[index].SellPrice, &MRC401ItemData.SellPrice, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item SellPrice error : " + err.Error())
@@ -1095,6 +1139,13 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is already auction")
 		}
 
+		// item transferable ?
+		if MRC401ItemData.Transferable == "Bound" {
+			if MRC401ItemData.Owner != MRC400ProjectData.Owner {
+				return errors.New("5002,MRC401 [" + MRC401AuctionData[index].ItemID + "] is cannot be sold")
+			}
+		}
+
 		// start price check
 		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionStartPrice, &MRC401ItemData.AuctionStartPrice, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item auction_start_price error : " + err.Error())
@@ -1463,7 +1514,7 @@ func auctionFinish(stub shim.ChaincodeStubInterface, mrc401id string, MRC401Item
 			return err
 		}
 		// Save Project Owner
-		if err = SetAddressInfo(stub, MRC400ProjectData.Owner, projectOwnerWallet, "receive_fee", []string{buyer, MRC400ProjectData.Owner, feePrice.String(), MRC401ItemData.SellToken, "", "0", "", mrc401id, ""}); err != nil {
+		if err = SetAddressInfo(stub, MRC400ProjectData.Owner, projectOwnerWallet, "receive_mrc401fee", []string{buyer, MRC400ProjectData.Owner, feePrice.String(), MRC401ItemData.SellToken, "", "0", "", mrc401id, ""}); err != nil {
 			return err
 		}
 		PaymentInfo = append(PaymentInfo, logDataBuy{seller, MRC400ProjectData.Owner, feePrice.String(), MRC401ItemData.AuctionToken, "mrc401_recv_fee"})

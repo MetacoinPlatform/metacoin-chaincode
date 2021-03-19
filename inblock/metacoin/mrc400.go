@@ -280,7 +280,6 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	var MRC401ItemData mtc.MRC401
 	var data []byte
 	var logData []mtc.MRC401Sell
-
 	var keyCheck map[string]int
 
 	// get project(mrc400)
@@ -311,8 +310,8 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 
 	createTotal = make(map[string]decimal.Decimal)
 	now = time.Now().Unix()
-	logData = make([]mtc.MRC401Sell, 0, 100)
-	keyCheck = make(map[string]int, len(MRC401Job))
+	logData = make([]mtc.MRC401Sell, 0, len(MRC401Job))
+	keyCheck = make(map[string]int)
 
 	for index := range MRC401Job {
 
@@ -474,8 +473,8 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 		return errors.New("3002,There must be 100 or fewer create item")
 	}
 
-	keyCheck = make(map[string]int, len(MRC401Job))
-	logData = make([]string, 0, 100)
+	keyCheck = make(map[string]int)
+	logData = make([]string, 0, len(MRC401Job))
 	for index := range MRC401Job {
 		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists != false {
 			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
@@ -677,8 +676,8 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 		return err
 	}
 
-	logData = make([]mtc.MRC401Sell, len(MRC401SellData))
-	keyCheck = make(map[string]int, len(MRC401SellData))
+	logData = make([]mtc.MRC401Sell, 0, len(MRC401SellData))
+	keyCheck = make(map[string]int)
 	now = time.Now().Unix()
 	for index := range MRC401SellData {
 		if _, exists := keyCheck[MRC401SellData[index].ItemID]; exists != false {
@@ -785,8 +784,8 @@ func Mrc401UnSell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, 
 		return err
 	}
 
-	logData = make([]string, len(MRC401list))
-	keyCheck = make(map[string]int, len(MRC401list))
+	logData = make([]string, 0, len(MRC401list))
+	keyCheck = make(map[string]int)
 	for index := range MRC401list {
 
 		if _, exists := keyCheck[MRC401list[index]]; exists != false {
@@ -1099,7 +1098,7 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 	// auction item check.
 	now = time.Now().Unix()
 
-	keyCheck = make(map[string]int, len(MRC401AuctionData))
+	keyCheck = make(map[string]int)
 	for index := range MRC401AuctionData {
 		if _, exists := keyCheck[MRC401AuctionData[index].ItemID]; exists != false {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is duplicate")
@@ -1224,7 +1223,7 @@ func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemDat
 		return err
 	}
 
-	keyCheck = make(map[string]int, len(MRC401list))
+	keyCheck = make(map[string]int)
 	for index := range MRC401list {
 		if _, exists := keyCheck[MRC401list[index]]; exists != false {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is duplicate")

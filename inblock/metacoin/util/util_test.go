@@ -99,7 +99,7 @@ func TestParseNotNegative(t *testing.T) {
 	tParseNotNegative(t, "-1234.5", false)                                                                          // decimal + negative
 	tParseNotNegative(t, "-12e3", false)                                                                            // negative exponential notation
 	tParseNotNegative(t, "1234a", false)                                                                            // invalid
-	}
+}
 
 func TestParsePositive(t *testing.T) {
 	// success check
@@ -151,7 +151,7 @@ func TestDataAssign(t *testing.T) {
 	tDataAssign(t, "for test string 1234 {},.", "string", 60, 90, false, false)
 	tDataAssign(t, "for test string 1234 {},.", "string", 20, 21, false, false)
 
-	}
+}
 
 func TestNumericDataCheck(t *testing.T) {
 	tNumericDataCheck(t, "123.1", "100", "200", 1, false, true)

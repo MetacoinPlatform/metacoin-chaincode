@@ -2,17 +2,18 @@ package main
 
 /*
 version 1.6     2020-11-06
-version 2.0		2020-11-07
-				cleanup!
-				split module
-				tkey => nonce
-				address generate built-in
+version 2.0	2020-11-07
+		cleanup!
+		split module
+		tkey => nonce
+		address generate built-in
 
 */
 import (
 	"log"
 	"fmt"
 	"strings"
+	"os"
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-protos-go/peer"
@@ -599,6 +600,27 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 		return shim.Success([]byte(value))
 
+	case "mrc110create":
+		if len(args) < 11 {
+			return shim.Error("1000,mrc110create operation must include four arguments : owner, name, url, imageurl, category, description, itemurl, itemimageurl, data, sign, tkey")
+		}
+		owner := args[0]
+		name := args[1]
+		url := args[2]
+		imageurl := args[3]
+		category := args[4]
+		description := args[5]
+		itemurl := args[6]
+		itemimageurl := args[7]
+		data := args[8]
+		signature := args[9]
+		tkey := args[10]
+
+		if err = metacoin.Mrc110Create(stub, owner, name, url, imageurl, category, description, itemurl, itemimageurl, data, signature, tkey , args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
 	default:
 		return shim.Error(fmt.Sprintf("Unsupported operation [%s]", function))
 	}
@@ -614,8 +636,8 @@ func (t *MetacoinChainCode) Init(stub shim.ChaincodeStubInterface) peer.Response
 func main() {
 	// See chaincode.env.example
 	config := serverConfig{
-		CCID:    "metacoin_2.0.2:20686d14decf0f62800379503a3103f6119b61cbdbb07027b599c212776f7e36",
-		Address: "0.0.0.0:7049",
+		CCID:    os.Getenv("CHAINCODE_ID"),
+		Address: os.Getenv("CHAINCODE_SERVER_ADDRESS"),
 	}
 
 	server := &shim.ChaincodeServer{

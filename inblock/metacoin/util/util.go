@@ -124,8 +124,8 @@ func EcdsaSignVerify(PublicKeyPem, Data, Sign string) error {
 		return nil
 	}
 
-		return errors.New("2010,Invalid signature")
-	}
+	return errors.New("2010,Invalid signature")
+}
 
 // DataAssign string length check and return trimming
 func DataAssign(src string, dest *string, dataType string, minLength int, maxLength int, allowEmpty bool) error {

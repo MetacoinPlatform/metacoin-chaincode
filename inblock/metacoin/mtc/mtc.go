@@ -102,6 +102,66 @@ type Token struct {
 	JobDate        int64            `json:"jobdate"`
 }
 
+// PricePair - 금액, 토큰
+type PricePair struct {
+	Amount string `json:"amount"`
+	Token  string `json:"token"`
+}
+
+// MRC110 for NFT Item project
+type MRC110 struct {
+	Owner        string `json:"owner"`
+	CreateDate   int64  `json:"createdate"` // read only
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	ImageURL     string `json:"image_url"`
+	Category     string `json:"category"`
+	Description  string `json:"description"`
+	ItemURL      string `json:"item_url"`
+	ItemImageURL string `json:"item_image_url"`
+	Data         string `json:"data"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
+}
+
+// MRC111 for NFT ITEM
+type MRC111 struct {
+	Owner           string `json:"owner"`           // 소유자
+	MRC110          string `json:"mrc110"`          // MRC110 ID
+	ItemURL         string `json:"item_url"`        // item description URL
+	ItemImageURL    string `json:"item_image_url"`  // image url
+	GroupID         string `json:"groupid"`         // group id
+	CreateDate      int64  `json:"createdate"`      // read only
+	InititalReserve string `json:"initial_reserve"` // 초기 판매 금액
+	InititalToken   string `json:"initial_token"`   // 초기 판매 토큰
+	MeltingFee      string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
+	Transferable    string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	TransferFee     string `json:"transfer_fee"`    // read only 이체 수수료 비율(0.0001~ 99.9999%)
+	SellPrice       string `json:"sell_price"`      // 판매 금액
+	SellToken       string `json:"sell_token"`      // 판매 토큰
+	SellDate        int64  `json:"sell_date"`       // 판매 시작 일시 0 이면 미 판매
+	MeltingDate     int64  `json:"melting_date"`    // Write Once 삭제 일시 0 이면 미 삭제,
+	JobType         string `json:"job_type"`
+	JobArgs         string `json:"job_args"`
+	JobDate         int64  `json:"jobdate"`
+}
+
+// MRC111job for NFT ITEM
+type MRC111job struct {
+	MRC110          string `json:"mrc110"`          // MRC110 ID
+	ItemID          string `json:"item_id"`         // MRC111 Item ID
+	ItemURL         string `json:"item_url"`        // item description URL
+	ItemImageURL    string `json:"item_image_url"`  // image url
+	GroupID         string `json:"groupid"`         // group id
+	CreateDate      int64  `json:"createdate"`      // read only
+	InititalReserve string `json:"initial_reserve"` // 초기 판매 금액
+	InititalToken   string `json:"initial_token"`   // 초기 판매 토큰
+	MeltingFee      string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
+	Transferable    string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	TransferFee     string `json:"transfer_fee"`    // read only 이체 수수료 비율(0.0001~ 99.9999%)
+}
+
 // TokenReserve token ico reserve
 type TokenReserve struct {
 	Address    string `json:"address"`

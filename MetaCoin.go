@@ -600,27 +600,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 		return shim.Success([]byte(value))
 
-	case "mrc110create":
-		if len(args) < 11 {
-			return shim.Error("1000,mrc110create operation must include four arguments : owner, name, url, imageurl, category, description, itemurl, itemimageurl, data, sign, tkey")
-		}
-		owner := args[0]
-		name := args[1]
-		url := args[2]
-		imageurl := args[3]
-		category := args[4]
-		description := args[5]
-		itemurl := args[6]
-		itemimageurl := args[7]
-		data := args[8]
-		signature := args[9]
-		tkey := args[10]
-
-		if err = metacoin.Mrc110Create(stub, owner, name, url, imageurl, category, description, itemurl, itemimageurl, data, signature, tkey , args); err != nil {
-			return shim.Error(err.Error())
-		}
-		break
-
 	default:
 		return shim.Error(fmt.Sprintf("Unsupported operation [%s]", function))
 	}

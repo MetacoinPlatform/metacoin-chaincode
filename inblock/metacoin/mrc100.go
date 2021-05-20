@@ -26,7 +26,7 @@ func Mrc100Payment(stub shim.ChaincodeStubInterface, to, TokenID, tag, userlist,
 	if err = json.Unmarshal([]byte(userlist), &playerList); err != nil {
 		return errors.New("4209,Invalid UserLIst data")
 	}
-	if len(playerList) < 0 {
+	if len(playerList) < 1 {
 		return errors.New("2007,Playerlist need more than one")
 	}
 	if len(playerList) > 32 {
@@ -45,7 +45,7 @@ func Mrc100Payment(stub shim.ChaincodeStubInterface, to, TokenID, tag, userlist,
 		}
 
 		if elements.Amount == "" {
-			return errors.New("1107,Amount is must integer")
+			return errors.New("1107,The amount must be an inteer")
 		}
 
 		if elements.Amount != "0" {
@@ -93,7 +93,7 @@ func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gam
 
 	for _, elements := range playerList {
 		if elements.Amount == "" {
-			return errors.New("1107,Amount is must integer")
+			return errors.New("1107,The amount must be an ineger")
 		}
 		checkList = append(checkList, elements.Address, elements.Amount, elements.Tag)
 	}

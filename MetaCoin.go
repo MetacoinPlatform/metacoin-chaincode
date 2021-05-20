@@ -155,6 +155,22 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 		break
 
+	case "signcheck":
+		if len(args) < 3 {
+			return shim.Error("1000,signcheck operation must include four arguments : address, data, sign")
+		}
+
+		address := args[0]
+		data := args[1]
+		sign := args[2]
+
+		// base.go
+		err = metacoin.SignCheck(stub, address, data, sign)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
 	case "multitransfer":
 		if len(args) < 5 {
 			return shim.Error("1000,multitransfer operation must include four arguments : fromAddr, transferlist, tokenID, signature, tkey")
@@ -393,30 +409,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
-
-	case "mrc011create":
-		if len(args) < 13 {
-			return shim.Error("1000,mrc011create operation must include four arguments : mrc011id, creator, name, totalsupply, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey")
-		}
-		mrc011id := args[0]
-		creator := args[1]
-		name := args[2]
-		totalsupply := args[3]
-		validitytype := args[4]
-		istransfer := args[5]
-		startdate := args[6]
-		enddate := args[7]
-		term := args[8]
-		code := args[9]
-		data := args[10]
-		signature := args[11]
-		tkey := args[12]
-
-		if err = metacoin.MRC011Create(stub, mrc011id, creator, name, totalsupply, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey, args); err != nil {
-			return shim.Error(err.Error())
-		}
-
 		break
 
 	case "mrc020":
@@ -828,6 +820,126 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		mrc401id := args[0]
 
 		if err = metacoin.Mrc401AuctionFinish(stub, mrc401id); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	/* MRC410 - coupon/ticket */
+	case "mrc410create":
+		if len(args) < 11 {
+			return shim.Error("1000,mrc410create operation must include four arguments : creator, name, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey")
+		}
+		creator := args[0]
+		name := args[1]
+		validitytype := args[2]
+		istransfer := args[3]
+		startdate := args[4]
+		enddate := args[5]
+		term := args[6]
+		code := args[7]
+		data := args[8]
+		signature := args[9]
+		tkey := args[10]
+
+		if err = metacoin.MRC410Create(stub, creator, name, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		break
+
+	/* MRC800 - point system */
+	case "mrc800create":
+		if len(args) < 8 {
+			return shim.Error("1000,mrc800create operation must include four arguments : owner, name, url, imageurl, transferable, description, sign, tkey")
+		}
+		owner := args[0]
+		name := args[1]
+		url := args[2]
+		imageurl := args[3]
+		transferable := args[4]
+		description := args[5]
+		sign := args[6]
+		tkey := args[7]
+
+		if err = metacoin.Mrc800Create(stub, owner, name, url, imageurl, transferable, description, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc800update":
+		if len(args) < 8 {
+			return shim.Error("1000,mrc800update operation must include four arguments : mrc800id, name, url, imageurl, transferable, description, sign, tkey")
+		}
+		mrc800id := args[0]
+		name := args[1]
+		url := args[2]
+		imageurl := args[3]
+		transferable := args[4]
+		description := args[5]
+		sign := args[6]
+		tkey := args[7]
+
+		if err = metacoin.Mrc800Update(stub, mrc800id, name, url, imageurl, transferable, description, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc800get":
+		if len(args) < 8 {
+			return shim.Error("1000,mrc800get operation must include four arguments : mrc800id")
+		}
+		mrc800id := args[0]
+
+		if value, err = metacoin.Mrc800get(stub, mrc800id); err != nil {
+			return shim.Error(err.Error())
+		}
+		return shim.Success([]byte(value))
+
+	case "mrc800give":
+		if len(args) < 1 {
+			return shim.Error("1000,mrc800give operation must include four arguments : mrc800id, toAddr, amount, memo, signature, tkey")
+		}
+		mrc800id := args[0]
+		toAddr := args[1]
+		amount := args[2]
+		memo := args[3]
+		signature := args[4]
+		tkey := args[5]
+
+		if err = metacoin.Mrc800give(stub, mrc800id, toAddr, amount, memo, signature, tkey); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc800take":
+		if len(args) < 1 {
+			return shim.Error("1000,mrc800take operation must include four arguments : mrc800id, fromAddr, amount, memo, signature, tkey")
+		}
+		mrc800id := args[0]
+		fromAddr := args[1]
+		amount := args[2]
+		memo := args[3]
+		signature := args[4]
+		tkey := args[5]
+
+		if err = metacoin.Mrc800take(stub, mrc800id, fromAddr, amount, memo, signature, tkey); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc800transfer":
+		if len(args) < 7 {
+			return shim.Error("1000,mrc800transfer operation must include four arguments : fromAddr, toAddr, mrc800id, amount, memo, signature, tkey")
+		}
+		fromAddr := args[0]
+		toAddr := args[1]
+		mrc800id := args[2]
+		amount := args[3]
+		memo := args[4]
+		signature := args[5]
+		tkey := args[6]
+
+		if err = metacoin.Mrc800transfer(stub, fromAddr, toAddr, mrc800id, amount, memo, signature, tkey); err != nil {
 			return shim.Error(err.Error())
 		}
 		break

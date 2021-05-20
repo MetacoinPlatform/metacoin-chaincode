@@ -130,6 +130,11 @@ func EcdsaSignVerify(PublicKeyPem, Data, Sign string) error {
 }
 
 // DataAssign string length check and return trimming
+/*
+	dataType : address, url, string, bool, id
+	minLength : minimum length, if 0 then allow data clear
+	allowEmpty : if true and minlength > 0 and buf is empty string then not update dest.
+*/
 func DataAssign(src string, dest *string, dataType string, minLength int, maxLength int, allowEmpty bool) error {
 	var err error
 	var u *url.URL
@@ -170,6 +175,10 @@ func DataAssign(src string, dest *string, dataType string, minLength int, maxLen
 		}
 		if len(buf) > maxLength {
 			return errors.New("too long")
+		}
+	} else if dataType == "bool" {
+		if buf != "1" && buf == "0" {
+			return errors.New("data is must be 1 or 0")
 		}
 	} else if dataType == "id" {
 		r, _ := regexp.Compile("^[a-zA-Z0-9]{" + strconv.Itoa(minLength) + "," + strconv.Itoa(maxLength) + "}$")

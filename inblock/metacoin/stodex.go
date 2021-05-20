@@ -170,7 +170,6 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 
 	buf, _ := json.Marshal(item)
 	if err = stub.PutState(exchangeItemPK, buf); err != nil {
-		fmt.Printf("stodexRegister stub.PutState(key, dat) [%s] Error %s\n", exchangeItemPK, err)
 		return errors.New("8600,Hyperledger internal error - " + err.Error())
 	}
 	return nil
@@ -303,7 +302,6 @@ func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, s
 	}
 	data, _ = json.Marshal(item)
 	if err = stub.PutState(exchangeItemPK, data); err != nil {
-		fmt.Printf("stodexUnRegister stub.PutState(key, dat) [%s] Error %s\n", exchangeItemPK, err)
 		return err
 	}
 	return nil
@@ -542,7 +540,6 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	targs = append(targs, strconv.FormatInt(now, 10))
 	targs = append(targs, exchangeItemPK)
 	targs = append(targs, exchangePK)
-	fmt.Printf("Set AddressInfo [%s], %s", item.Owner, string(data))
 	if err = SetAddressInfo(stub, item.Owner, ownerData, "stodexExchangePending", targs); err != nil {
 		return err
 	}
@@ -584,7 +581,6 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	targs = append(targs, strconv.FormatInt(now, 64))
 	targs = append(targs, exchangeItemPK)
 	targs = append(targs, exchangePK)
-	fmt.Printf("Set AddressInfo Requester  [%s], %s", requester, string(data))
 	if err = SetAddressInfo(stub, requester, requesterData, "stodexExchangeRequest", targs); err != nil {
 		return err
 	}
@@ -648,7 +644,6 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 
 	data, _ = json.Marshal(item)
 	if err = stub.PutState(exchangeItemPK, data); err != nil {
-		fmt.Printf("stodexRequest stub.PutState(key, dat) [%s] Error %s\n", "EXCH_"+exchangeItemPK, err)
 		return err
 	}
 	return nil
@@ -734,7 +729,6 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	case fromFeeAddr:
 		PmwTofee = PmwFromfee
 	default:
-		fmt.Printf("uniq toFeeAddr %s \n", toFeeAddr)
 		if util.IsAddress(toFeeAddr) {
 			return errors.New("3004,Invalid to fee address")
 		}

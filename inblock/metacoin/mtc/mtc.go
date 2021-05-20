@@ -14,15 +14,16 @@ const InitSupply = 800000000
 
 // MetaWallet - wallet data.
 type MetaWallet struct {
-	Regdate  int64          `json:"regdate"`
-	Password string         `json:"password"`
-	Addinfo  string         `json:"addinfo"`
-	JobType  string         `json:"job_type"`
-	JobArgs  string         `json:"job_args"`
-	JobDate  int64          `json:"jobdate"`
-	Balance  []BalanceInfo  `json:"balance"`
-	Pending  map[int]string `json:"pending"`
-	Nonce    string         `json:"nonce"`
+	Regdate  int64             `json:"regdate"`
+	Password string            `json:"password"`
+	Addinfo  string            `json:"addinfo"`
+	JobType  string            `json:"job_type"`
+	JobArgs  string            `json:"job_args"`
+	JobDate  int64             `json:"jobdate"`
+	Balance  []BalanceInfo     `json:"balance"`
+	Mrc800   map[string]string `json:"mrc800"`
+	Pending  map[int]string    `json:"pending"`
+	Nonce    string            `json:"nonce"`
 }
 
 // BalanceInfo - token balance info with unlockdate
@@ -128,8 +129,8 @@ type MRC400 struct {
 
 // MRC401 for NFT ITEM
 type MRC401 struct {
-	Owner                string `json:"owner"`           // 소유자
 	MRC400               string `json:"mrc400"`          // MRC400 ID
+	Owner                string `json:"owner"`           // 소유자
 	ItemURL              string `json:"item_url"`        // item description URL
 	ItemImageURL         string `json:"item_image_url"`  // image url
 	GroupID              string `json:"groupid"`         // group id
@@ -137,12 +138,12 @@ type MRC401 struct {
 	InititalReserve      string `json:"initial_reserve"` // 초기 판매 금액
 	InititalToken        string `json:"initial_token"`   // 초기 판매 토큰
 	MeltingFee           string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
+	MeltingDate          int64  `json:"melting_date"`    // Write Once 삭제 일시 0 이면 미 삭제,
 	Transferable         string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	SellDate             int64  `json:"sell_date"`       // 판매 시작 일시 0 이면 미 판매
 	SellFee              string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
 	SellPrice            string `json:"sell_price"`      // 판매 금액
 	SellToken            string `json:"sell_token"`      // 판매 토큰
-	SellDate             int64  `json:"sell_date"`       // 판매 시작 일시 0 이면 미 판매
-	MeltingDate          int64  `json:"melting_date"`    // Write Once 삭제 일시 0 이면 미 삭제,
 	JobType              string `json:"job_type"`
 	JobArgs              string `json:"job_args"`
 	JobDate              int64  `json:"jobdate"`
@@ -154,6 +155,10 @@ type MRC401 struct {
 	AuctionBuyNowPrice   string `json:"auction_buynow_price"`   // 경매 즉시 구매 금액
 	AuctionCurrentPrice  string `json:"auction_current_price"`  // 경매 현 금액
 	AuctionCurrentBidder string `json:"auction_current_bidder"` // 현재 입찰자
+	LastTradeDate        int64  `json:"last_trade_date"`        // last buy or auction finish date
+	LastTradeAmount      string `json:"last_trade_amount"`      // last buy or auction finish amount
+	LastTradeToken       string `json:"last_trade_token"`       // last buy or auction finish token
+	LastTradeType        string `json:"last_trade_type"`        // "Auction" or "Sell"
 }
 
 // MRC401job for NFT ITEM create
@@ -186,6 +191,20 @@ type MRC401Auction struct {
 	AuctionBiddingUnit string `json:"bidding"` // 경매 입찰 단위
 	AuctionStartPrice  string `json:"start"`   // 경매 시작 금액
 	AuctionBuyNowPrice string `json:"buynow"`  // 경매 즉시 구매 금액
+}
+
+// MRC400 for NFT Item project
+type MRC800 struct {
+	Owner        string `json:"owner"`
+	CreateDate   int64  `json:"createdate"` // read only
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	ImageURL     string `json:"image_url"`
+	Transferable string `json:"transferable"`
+	Description  string `json:"description"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
 }
 
 // TokenReserve token ico reserve
@@ -255,28 +274,23 @@ type ExchangeResult struct {
 	Type       string `json:"type"`
 }
 
-// MRC011 : Coupon/Ticket base
-type MRC011 struct {
-	Creator      string `json:"creator"`
-	Name         string `json:"name"`
-	TotalSupply  int    `json:"totalsupply"`
-	UsedCount    int    `json:"used_count"`
-	PublishCount int    `json:"publish_count"`
-	RemainCount  int    `json:"remain_count"`
-	ValidityYype string `json:"validity_type"`
-	IsTransfer   int    `json:"is_transfer"`
-	StartDate    int64  `json:"start_date"`
-	EndDate      int64  `json:"end_date"`
-	Term         int    `json:"term"`
-	Code         string `json:"code"`
-	Data         string `json:"data"`
-	JobType      string `json:"job_type"`
-	JobArgs      string `json:"job_args"`
-	JobDate      int64  `json:"jobdate"`
+// MRC410 : Coupon/Ticket base
+type MRC410 struct {
+	Creator    string `json:"creator"`
+	Name       string `json:"name"`
+	IsTransfer int    `json:"is_transfer"`
+	StartDate  int64  `json:"start_date"`
+	EndDate    int64  `json:"end_date"`
+	Term       int    `json:"term"`
+	Code       string `json:"code"`
+	Data       string `json:"data"`
+	JobType    string `json:"job_type"`
+	JobArgs    string `json:"job_args"`
+	JobDate    int64  `json:"jobdate"`
 }
 
-// MRC012 : Coupon/Ticket
-type MRC012 struct {
+// MRC411 : Coupon/Ticket
+type MRC411 struct {
 	Creator    string `json:"creator"`
 	Owner      string `json:"owner"`
 	Name       string `json:"name"`

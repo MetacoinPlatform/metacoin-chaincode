@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -46,7 +47,6 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 
 		dat, err = stub.GetState(address)
 		if err != nil { // already exists.
-			fmt.Printf("setAddressInfo stub.GetState(key) [%s] Error %s\n", address, err)
 			return "", errors.New("8600,Hyperledger internal error - " + err.Error())
 		}
 
@@ -494,15 +494,12 @@ func GetNonce(stub shim.ChaincodeStubInterface, address string) (string, error) 
 
 // NonceCheck - nonce check & sign check & generate new nonce
 func NonceCheck(walletData *mtc.MetaWallet, nonce, Data, signature string) error {
-	fmt.Printf("NonceCheck - Wallet nonce : %s\n", walletData.Nonce)
-	fmt.Printf("NonceCheck - Your nonce   : %s\n", nonce)
-	fmt.Printf("NonceCheck - Data         : %s\n", Data)
-	fmt.Printf("NonceCheck - signature    : %s\n", signature)
 	if walletData.Nonce != "" {
 		if nonce != walletData.Nonce {
 			return errors.New("1102,nonce error")
 		}
 	} else {
+		// Compatibility code for old wallet users who do not use nonce values
 		if nonce != strconv.FormatInt(walletData.JobDate, 10) {
 			return errors.New("1102,nonce error")
 		}
@@ -515,7 +512,26 @@ func NonceCheck(walletData *mtc.MetaWallet, nonce, Data, signature string) error
 	}
 	walletData.Nonce = util.MakeRandomString(40)
 	return nil
+}
 
+func NonceCheckOnly(walletData *mtc.MetaWallet, nonce, Data, signature string) error {
+	if walletData.Nonce != "" {
+		if nonce != walletData.Nonce {
+			return errors.New("1102,nonce error")
+		}
+	} else {
+		// Compatibility code for old wallet users who do not use nonce values
+		if nonce != strconv.FormatInt(walletData.JobDate, 10) {
+			return errors.New("1102,nonce error")
+		}
+	}
+
+	if err := util.EcdsaSignVerify(walletData.Password,
+		Data,
+		signature); err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetAddressInfo address info.
@@ -555,11 +571,9 @@ func SetAddressInfo(stub shim.ChaincodeStubInterface, key string, mcData mtc.Met
 	}
 
 	if dat, err = json.Marshal(mcData); err != nil {
-		fmt.Printf("setAddressInfo json.Marshal(mcData) [%s] Marshal error %s\n", key, err)
 		return errors.New("3209,Invalid address data format")
 	}
 	if err := stub.PutState(key, dat); err != nil {
-		fmt.Printf("setAddressInfo stub.PutState(key, dat) [%s] Error %s\n", key, err)
 		return errors.New("8600,Hyperledger internal error - " + err.Error() + key)
 	}
 	return nil
@@ -581,11 +595,9 @@ func SetTokenInfo(stub shim.ChaincodeStubInterface, key string, tk mtc.Token, Jo
 	}
 
 	if dat, err = json.Marshal(tk); err != nil {
-		fmt.Printf("setTokenInfo json.Marshal(mcData) [%s] Marshal error %s\n", key, err)
 		return errors.New("4204,Invalid token data format")
 	}
 	if err = stub.PutState("TOKEN_DATA_"+key, dat); err != nil {
-		fmt.Printf("setTokenInfo stub.PutState(key, dat) [%s] Error %s\n", key, err)
 		return errors.New("8600,Hyperledger internal error - " + err.Error())
 	}
 	return nil
@@ -614,4 +626,28 @@ func GetToken(stub shim.ChaincodeStubInterface, TokenID string) (mtc.Token, int,
 		return tk, TokenSN, errors.New("4204,Invalid token data format - " + err.Error())
 	}
 	return tk, TokenSN, nil
+}
+
+func SignCheck(stub shim.ChaincodeStubInterface, Address, Data, Sign string) error {
+	var walletData mtc.MetaWallet
+	var err error
+
+	if walletData, err = GetAddressInfo(stub, Address); err != nil {
+		return err
+	}
+	if len(Data) == 0 || len(Data) > 20 {
+		return errors.New("9001, SignCheck data is too long or empty")
+	}
+
+	r, _ := regexp.Compile("^[a-zA-Z0-9]{1,20}$")
+	if r.MatchString(Data) == false {
+		return errors.New("9002,SignCheck data only accepts a-z, A-Z, 0-9")
+	}
+
+	if err = util.EcdsaSignVerify(walletData.Password,
+		Data,
+		Sign); err != nil {
+		return err
+	}
+	return nil
 }

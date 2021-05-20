@@ -2,7 +2,6 @@ package metacoin
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -173,7 +172,6 @@ func Mrc100Log(stub shim.ChaincodeStubInterface, key, token, logger, log, signat
 		return "", errors.New("8600,Hyperledger internal error - " + err.Error())
 	}
 
-	fmt.Printf("MRC100Log [%s] [%s]\n", key, token)
 	return key, nil
 }
 

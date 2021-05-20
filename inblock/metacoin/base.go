@@ -67,7 +67,6 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 			if dt <  26 {
 				return "", errors.New("3103,Public key decode error " + publicKey)
 			}
-			fmt.Sprintf("Key DATA [%s]", publicKey)
 			var buf = make([]string, 3)
 			buf[0] = publicKey[0:26]
 			buf[1] = publicKey[26:dt]

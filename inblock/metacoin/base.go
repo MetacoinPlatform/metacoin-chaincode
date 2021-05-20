@@ -64,7 +64,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 	if block == nil {
 		if strings.Index(publicKey, "\n") == -1 {
 			var dt = len(publicKey) - 24
-			if dt <  26 {
+			if dt < 26 {
 				return "", errors.New("3103,Public key decode error " + publicKey)
 			}
 			var buf = make([]string, 3)

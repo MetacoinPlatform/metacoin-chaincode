@@ -8,12 +8,15 @@ version 2.0	2020-11-07
 		tkey => nonce
 		address generate built-in
 
+version 2.1		2021-02-14
+				MRC 110, 111 - NFT
+
 */
 import (
-	"log"
 	"fmt"
-	"strings"
+	"log"
 	"os"
+	"strings"
 
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-protos-go/peer"
@@ -64,10 +67,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 	case "get":
 		if len(args) < 1 {
 			return shim.Error("1000,get operation must include one arguments, address")
-		}
-
-		if strings.Index(args[0], "MRC") == 0 {
-			return shim.Error("1000,invalid address")
 		}
 
 		valuet, err := stub.GetState(args[0])
@@ -139,6 +138,22 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 
 		// base.go
 		err = metacoin.Transfer(stub, fromAddr, toAddr, amount, tokenID, unlockdate, sign, tkey, args)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "signcheck":
+		if len(args) < 3 {
+			return shim.Error("1000,signcheck operation must include four arguments : address, data, sign")
+		}
+
+		address := args[0]
+		data := args[1]
+		sign := args[2]
+
+		// base.go
+		err = metacoin.SignCheck(stub, address, data, sign)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -386,30 +401,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 		break
 
-	case "mrc011create":
-		if len(args) < 13 {
-			return shim.Error("1000,mrc011create operation must include four arguments : mrc011id, creator, name, totalsupply, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey")
-		}
-		mrc011id := args[0]
-		creator := args[1]
-		name := args[2]
-		totalsupply := args[3]
-		validitytype := args[4]
-		istransfer := args[5]
-		startdate := args[6]
-		enddate := args[7]
-		term := args[8]
-		code := args[9]
-		data := args[10]
-		signature := args[11]
-		tkey := args[12]
-
-		if err = metacoin.MRC011Create(stub, mrc011id, creator, name, totalsupply, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey, args); err != nil {
-			return shim.Error(err.Error())
-		}
-
-		break
-
 	case "mrc020":
 		if len(args) < 8 {
 			return shim.Error("1000,mrc20 operation must include four arguments : owner, algorithm, data, publickey, opendata, referencekey, sign, tkey")
@@ -599,6 +590,252 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error(err.Error())
 		}
 		return shim.Success([]byte(value))
+
+	case "mrc400get":
+		if len(args) < 1 {
+			return shim.Error("1000,mrc400get operation must include four arguments : mrc400Key")
+		}
+
+		mrc400Key := args[0]
+
+		if value, err = metacoin.Mrc400get(stub, mrc400Key); err != nil {
+			return shim.Error(err.Error())
+		}
+		return shim.Success([]byte(value))
+
+	case "mrc400create":
+		if len(args) < 12 {
+			return shim.Error("1000,mrc400create operation must include four arguments : owner, name, url, imageurl, allowtoken, itemurl, itemimageurl, category, description, data, sign, tkey, args")
+		}
+		owner := args[0]
+		name := args[1]
+		url := args[2]
+		imageurl := args[3]
+		allowtoken := args[4]
+		itemurl := args[5]
+		itemimageurl := args[6]
+		category := args[7]
+		description := args[8]
+		data := args[9]
+		sign := args[10]
+		tkey := args[11]
+
+		if err = metacoin.Mrc400Create(stub, owner, name, url, imageurl, allowtoken, itemurl, itemimageurl, category, description, data, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc400update":
+		if len(args) < 12 {
+			return shim.Error("1000,mrc400update operation must include four arguments : mrc400id, name, url, imageurl, allowtoken, itemurl, itemimageurl, category, description, data, sign, tkey")
+		}
+		mrc400id := args[0]
+		name := args[1]
+		url := args[2]
+		imageurl := args[3]
+		allowtoken := args[4]
+		itemurl := args[5]
+		itemimageurl := args[6]
+		category := args[7]
+		description := args[8]
+		data := args[9]
+		sign := args[10]
+		tkey := args[11]
+		if err = metacoin.Mrc400Update(stub, mrc400id, name, url, imageurl, allowtoken, itemurl, itemimageurl, category, description, data, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401get":
+		if len(args) < 1 {
+			return shim.Error("1000,mrc401get operation must include four arguments : mrc401Key")
+		}
+
+		mrc401Key := args[0]
+
+		if value, err = metacoin.Mrc401get(stub, mrc401Key); err != nil {
+			return shim.Error(err.Error())
+		}
+		return shim.Success([]byte(value))
+
+	case "mrc401create":
+		if len(args) < 4 {
+			return shim.Error("1000,mrc401create operation must include four arguments : mrc400id, itemData, sign, tkey")
+		}
+		mrc400id := args[0]
+		itemData := args[1]
+		sign := args[2]
+		tkey := args[3]
+
+		if err = metacoin.Mrc401Create(stub, mrc400id, itemData, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401update":
+		if len(args) < 4 {
+			return shim.Error("1000,mrc401update operation must include four arguments : mrc400id, itemData, sign, tkey")
+		}
+		mrc400id := args[0]
+		itemData := args[1]
+		sign := args[2]
+		tkey := args[3]
+
+		if err = metacoin.Mrc401Update(stub, mrc400id, itemData, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401transfer":
+		if len(args) < 5 {
+			return shim.Error("1000,mrc401transfer operation must include four arguments : mrc401id, fromAddr, toAddr, sign, tkey")
+		}
+		mrc401id := args[0]
+		fromAddr := args[1]
+		toAddr := args[2]
+		sign := args[3]
+		tkey := args[4]
+
+		if err = metacoin.Mrc401Transfer(stub, mrc401id, fromAddr, toAddr, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401sell":
+		if len(args) < 5 {
+			return shim.Error("1000,mrc401sell operation must include four arguments : seller, mrc400id, itemData, sign, tkey")
+		}
+		seller := args[0]
+		mrc400id := args[1]
+		itemData := args[2]
+		sign := args[3]
+		tkey := args[4]
+
+		if err = metacoin.Mrc401Sell(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401unsell":
+		if len(args) < 5 {
+			return shim.Error("1000,mrc401unsell operation must include four arguments : seller, mrc400id, itemData, sign, tkey")
+		}
+		seller := args[0]
+		mrc400id := args[1]
+		itemData := args[2]
+		sign := args[3]
+		tkey := args[4]
+
+		if err = metacoin.Mrc401UnSell(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401buy":
+		if len(args) < 4 {
+			return shim.Error("1000,mrc401buy operation must include four arguments : buyer, mrc401id, sign, tkey")
+		}
+		buyer := args[0]
+		mrc401id := args[1]
+		sign := args[2]
+		tkey := args[3]
+
+		if err = metacoin.Mrc401Buy(stub, buyer, mrc401id, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401melt":
+		if len(args) < 3 {
+			return shim.Error("1000,mrc401melt operation must include four arguments : mrc401id, sign, tkey")
+		}
+		mrc401id := args[0]
+		sign := args[1]
+		tkey := args[2]
+
+		if err = metacoin.Mrc401Melt(stub, mrc401id, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401auction":
+		if len(args) < 5 {
+			return shim.Error("1000,mrc401auction operation must include four arguments : seller, mrc400id, itemData, sign, tkey")
+		}
+		seller := args[0]
+		mrc400id := args[1]
+		itemData := args[2]
+		sign := args[3]
+		tkey := args[4]
+
+		if err = metacoin.Mrc401Auction(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401unauction":
+		if len(args) < 5 {
+			return shim.Error("1000,mrc401unauction operation must include four arguments : seller, mrc400id, itemData, sign, tkey")
+		}
+		seller := args[0]
+		mrc400id := args[1]
+		itemData := args[2]
+		sign := args[3]
+		tkey := args[4]
+
+		if err = metacoin.Mrc401UnAuction(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401bid":
+		if len(args) < 6 {
+			return shim.Error("1000,mrc401bid operation must include four arguments : buyer, mrc401id, amount, token, sign, tkey")
+		}
+		buyer := args[0]
+		mrc401id := args[1]
+		amount := args[2]
+		token := args[3]
+		sign := args[4]
+		tkey := args[5]
+		if err = metacoin.Mrc401AuctionBid(stub, buyer, mrc401id, amount, token, sign, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	case "mrc401auctionfinish":
+		if len(args) < 1 {
+			return shim.Error("1000,mrc401auctionfinish operation must include four arguments : mrc401id")
+		}
+		mrc401id := args[0]
+
+		if err = metacoin.Mrc401AuctionFinish(stub, mrc401id); err != nil {
+			return shim.Error(err.Error())
+		}
+		break
+
+	/* MRC410 - coupon/ticket */
+	case "mrc410create":
+		if len(args) < 11 {
+			return shim.Error("1000,mrc410create operation must include four arguments : creator, name, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey")
+		}
+		creator := args[0]
+		name := args[1]
+		validitytype := args[2]
+		istransfer := args[3]
+		startdate := args[4]
+		enddate := args[5]
+		term := args[6]
+		code := args[7]
+		data := args[8]
+		signature := args[9]
+		tkey := args[10]
+
+		if err = metacoin.MRC410Create(stub, creator, name, validitytype, istransfer, startdate, enddate, term, code, data, signature, tkey, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		break
 
 	default:
 		return shim.Error(fmt.Sprintf("Unsupported operation [%s]", function))

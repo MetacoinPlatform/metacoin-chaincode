@@ -69,6 +69,9 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 		return "", err
 	}
 
+	if len(tk.Type) == 0 {
+		tk.Type = "010"
+	}
 	tk.Token = currNo
 	tk.JobDate = time.Now().Unix()
 	tk.CreateDate = time.Now().Unix()

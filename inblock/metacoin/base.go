@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"hash/crc32"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -396,7 +397,7 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 	var fromData, toData mtc.MetaWallet
 	var iUnlockDate int64
 	var target []mtc.MultiTransferList
-	var to_list map[string]int
+	var toList map[string]int
 
 	if util.IsAddress(fromAddr) {
 		return errors.New("3001,Invalid from address")
@@ -411,29 +412,29 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 	}
 
 	if err = json.Unmarshal([]byte(transferlist), &target); err != nil {
-		return errors.New("3290,Question is in the wrong data")
+		return errors.New("3290,Transfer list is in the wrong data - " + err.Error())
 	}
 
 	if _, _, err = GetToken(stub, token); err != nil {
 		return err
 	}
 	if len(target) < 1 {
-		return errors.New("3002, There are no multiple transmission recipients.")
+		return errors.New("3002, There are no multiple transmission recipients")
 	}
 
 	if len(target) > 100 {
 		return errors.New("3002,There must be 100 or fewer recipients of multitransfer")
 	}
 
-	to_list = make(map[string]int)
+	toList = make(map[string]int)
 	for _, ele := range target {
 		if util.IsAddress(ele.Address) {
 			return errors.New("3002,Invalid to address")
 		}
-		if _, exists := to_list[ele.Address]; exists != false {
+		if _, exists := toList[ele.Address]; exists != false {
 			return errors.New("6100, [" + ele.Address + "] already exists on the transfer list.")
 		}
-		to_list[ele.Address] = 1
+		toList[ele.Address] = 1
 		if fromAddr == ele.Address {
 			return errors.New("3201,From address and to address must be different values")
 		}
@@ -492,6 +493,7 @@ func NonceCheck(walletData *mtc.MetaWallet, nonce, Data, signature string) error
 			return errors.New("1102,nonce error")
 		}
 	} else {
+		// Compatibility code for old wallet users who do not use nonce values
 		if nonce != strconv.FormatInt(walletData.JobDate, 10) {
 			return errors.New("1102,nonce error")
 		}
@@ -504,7 +506,26 @@ func NonceCheck(walletData *mtc.MetaWallet, nonce, Data, signature string) error
 	}
 	walletData.Nonce = util.MakeRandomString(40)
 	return nil
+}
 
+func NonceCheckOnly(walletData *mtc.MetaWallet, nonce, Data, signature string) error {
+	if walletData.Nonce != "" {
+		if nonce != walletData.Nonce {
+			return errors.New("1102,nonce error")
+		}
+	} else {
+		// Compatibility code for old wallet users who do not use nonce values
+		if nonce != strconv.FormatInt(walletData.JobDate, 10) {
+			return errors.New("1102,nonce error")
+		}
+	}
+
+	if err := util.EcdsaSignVerify(walletData.Password,
+		Data,
+		signature); err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetAddressInfo address info.
@@ -512,7 +533,7 @@ func GetAddressInfo(stub shim.ChaincodeStubInterface, key string) (mtc.MetaWalle
 	var mcData mtc.MetaWallet
 
 	if util.IsAddress(key) {
-		return mcData, errors.New("3190,Address [" + key + "] is in the wrong format")
+		return mcData, errors.New("3190,[" + key + "] is not Metacoin address")
 	}
 	value, err := stub.GetState(key)
 	if err != nil {
@@ -522,7 +543,7 @@ func GetAddressInfo(stub shim.ChaincodeStubInterface, key string) (mtc.MetaWalle
 		return mcData, errors.New("3090,Can not find the address [" + key + "]")
 	}
 	if err = json.Unmarshal(value, &mcData); err != nil {
-		return mcData, errors.New("3290,Address [" + key + "] is in the wrong data")
+		return mcData, errors.New("3290,Address [" + key + "] is in the wrong data - " + err.Error())
 	}
 	return mcData, nil
 }
@@ -544,11 +565,9 @@ func SetAddressInfo(stub shim.ChaincodeStubInterface, key string, mcData mtc.Met
 	}
 
 	if dat, err = json.Marshal(mcData); err != nil {
-		fmt.Printf("setAddressInfo json.Marshal(mcData) [%s] Marshal error %s\n", key, err)
 		return errors.New("3209,Invalid address data format")
 	}
 	if err := stub.PutState(key, dat); err != nil {
-		fmt.Printf("setAddressInfo stub.PutState(key, dat) [%s] Error %s\n", key, err)
 		return errors.New("8600,Hyperledger internal error - " + err.Error() + key)
 	}
 	return nil
@@ -570,11 +589,9 @@ func SetTokenInfo(stub shim.ChaincodeStubInterface, key string, tk mtc.Token, Jo
 	}
 
 	if dat, err = json.Marshal(tk); err != nil {
-		fmt.Printf("setTokenInfo json.Marshal(mcData) [%s] Marshal error %s\n", key, err)
 		return errors.New("4204,Invalid token data format")
 	}
 	if err = stub.PutState("TOKEN_DATA_"+key, dat); err != nil {
-		fmt.Printf("setTokenInfo stub.PutState(key, dat) [%s] Error %s\n", key, err)
 		return errors.New("8600,Hyperledger internal error - " + err.Error())
 	}
 	return nil
@@ -600,7 +617,31 @@ func GetToken(stub shim.ChaincodeStubInterface, TokenID string) (mtc.Token, int,
 		return tk, TokenSN, errors.New("4001,Token " + TokenID + " not exists")
 	}
 	if err = json.Unmarshal(data, &tk); err != nil {
-		return tk, TokenSN, errors.New("4204,Invalid token data format")
+		return tk, TokenSN, errors.New("4204,Invalid token data format - " + err.Error())
 	}
 	return tk, TokenSN, nil
+}
+
+func SignCheck(stub shim.ChaincodeStubInterface, Address, Data, Sign string) error {
+	var walletData mtc.MetaWallet
+	var err error
+
+	if walletData, err = GetAddressInfo(stub, Address); err != nil {
+		return err
+	}
+	if len(Data) == 0 || len(Data) > 20 {
+		return errors.New("9001, SignCheck data is too long or empty")
+	}
+
+	r, _ := regexp.Compile("^[a-zA-Z0-9]{1,20}$")
+	if r.MatchString(Data) == false {
+		return errors.New("9002,SignCheck data only accepts a-z, A-Z, 0-9")
+	}
+
+	if err = util.EcdsaSignVerify(walletData.Password,
+		Data,
+		Sign); err != nil {
+		return err
+	}
+	return nil
 }

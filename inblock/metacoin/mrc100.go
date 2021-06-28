@@ -2,7 +2,6 @@ package metacoin
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -45,7 +44,7 @@ func Mrc100Payment(stub shim.ChaincodeStubInterface, to, TokenID, tag, userlist,
 		}
 
 		if elements.Amount == "" {
-			return errors.New("1107,The amount must be an inteer")
+			return errors.New("1107,The amount must be an integer")
 		}
 
 		if elements.Amount != "0" {
@@ -93,7 +92,7 @@ func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gam
 
 	for _, elements := range playerList {
 		if elements.Amount == "" {
-			return errors.New("1107,The amount must be an ineger")
+			return errors.New("1107,The amount must be an integer")
 		}
 		checkList = append(checkList, elements.Address, elements.Amount, elements.Tag)
 	}
@@ -174,7 +173,6 @@ func Mrc100Log(stub shim.ChaincodeStubInterface, key, token, logger, log, signat
 		return "", errors.New("8600,Hyperledger internal error - " + err.Error())
 	}
 
-	fmt.Printf("MRC100Log [%s] [%s]\n", key, token)
 	return key, nil
 }
 

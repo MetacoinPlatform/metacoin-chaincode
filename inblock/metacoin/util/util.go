@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"io"
 	"math/big"
 	"net/url"
 	"regexp"
@@ -13,13 +14,14 @@ import (
 
 	"encoding/asn1"
 	"encoding/base64"
+	"encoding/json"
 	"encoding/pem"
 
 	"crypto/ecdsa"
-	"crypto/sha512"
+	"crypto/md5"
 	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/x509"
-    "crypto/md5"
 	"hash/crc32"
 
 	"github.com/shopspring/decimal"
@@ -43,12 +45,13 @@ func MakeRandomString(n int) string {
 
 func GetMD5(data string) string {
 	h := md5.New()
-	return fmt.Sprintf("%x", h.Sum([]byte(data)))
+	io.WriteString(h, data)
+	return fmt.Sprintf("%x", h.Sum(nil))
 }
 
 func GenerateKey(prefix string, data []string) string {
-	h := md5.New()
-	return fmt.Sprintf("%6s_%x", h.Sum([]byte(strings.Join(data, "|"))))
+	prefix = prefix + "000000"
+	return fmt.Sprintf("%6s_%s", prefix[:6], GetMD5(strings.Join(data, "|")))
 }
 
 
@@ -128,12 +131,27 @@ func EcdsaSignVerify(PublicKeyPem, Data, Sign string) error {
 }
 
 // DataAssign string length check and return trimming
+/*
+	dataType : address, url, string, bool, id
+	minLength : minimum length, if 0 then allow data clear
+	allowEmpty : if true and minlength > 0 and buf is empty string then not update dest.
+*/
 func DataAssign(src string, dest *string, dataType string, minLength int, maxLength int, allowEmpty bool) error {
 	var err error
 	var u *url.URL
 	buf := strings.TrimSpace(src)
-	if allowEmpty == true && len(buf) == 0 {
+
+	// input data is null string.
+	if len(buf) == 0 {
+		// allow clear
+		if minLength == 0 {
+			*dest = buf
+			return nil
+		}
+		// allow empay for not update
+		if allowEmpty == true {
 		return nil
+	}
 	}
 
 	if dataType == "address" {
@@ -159,6 +177,10 @@ func DataAssign(src string, dest *string, dataType string, minLength int, maxLen
 		if len(buf) > maxLength {
 			return errors.New("too long")
 		}
+	} else if dataType == "bool" {
+		if buf != "1" && buf == "0" {
+			return errors.New("data is must be 1 or 0")
+		}
 	} else if dataType == "id" {
 		r, _ := regexp.Compile("^[a-zA-Z0-9]{" + strconv.Itoa(minLength) + "," + strconv.Itoa(maxLength) + "}$")
 		if r.MatchString(buf) == false {
@@ -174,7 +196,9 @@ func DataAssign(src string, dest *string, dataType string, minLength int, maxLen
 		}
 	}
 
+	if dest != nil {
 	*dest = buf
+	}
 	return nil
 }
 
@@ -220,7 +244,9 @@ func NumericDataCheck(src string, dest *string, minValue string, maxValue string
 		return errors.New(" must be smaller then " + maxValue)
 	}
 
+	if dest != nil {
 	*dest = buf
+	}
 	return nil
 }
 
@@ -329,4 +355,13 @@ func ParseNotNegative(s string) (decimal.Decimal, error) {
 		return d, errors.New("1101," + s + " is negative.")
 	}
 	return d, nil
+}
+
+// JSONEncode simple
+func JSONEncode(v interface{}) string {
+	if argdat, err := json.Marshal(v); err == nil {
+		return string(argdat)
+	} else {
+		return ""
+	}
 }

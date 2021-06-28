@@ -3,7 +3,6 @@ package metacoin
 import (
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -214,8 +213,6 @@ func MRC030Join(stub shim.ChaincodeStubInterface, mrc030id, Voter, Answer, voteC
 	}
 
 	if vote.RewardType == 10 && len(vote.Voter) >= vote.MaxRewardRecipient {
-		fmt.Printf("vote.MaxRewardRecipient : %d\n", vote.MaxRewardRecipient)
-		fmt.Printf("vote.Voter : %v\n", vote.Voter)
 		return errors.New("3290,No more voting")
 	}
 
@@ -273,10 +270,8 @@ func MRC030Join(stub shim.ChaincodeStubInterface, mrc030id, Voter, Answer, voteC
 		}
 	}
 
-	fmt.Printf("Reward : [%s]  vote.RewardType : [%d]\n", vote.Reward, vote.RewardType)
 	if vote.RewardType == 10 {
 		if vote.Reward != "0" {
-			fmt.Printf("addToken : [%s]  vote.RewardType : [%s]\n", Voter, vote.Reward)
 			if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 				return err
 			}
@@ -333,31 +328,24 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 			return errors.New("4922,This is an ongoing vote")
 		}
 
-		fmt.Printf("Finish Reward : [%s]  vote.RewardType : [%d]\n", vote.Reward, vote.RewardType)
 		// 추첨
 		JoinerList = make([]string, len(vote.Voter))
 
 		if len(vote.Voter) < vote.MaxRewardRecipient { // 모두 추첨 대상
-			fmt.Printf("Reward ALL\n")
 
 			for key = range vote.Voter {
-				fmt.Printf("Address : [%s]\n", key)
 				if voterData, err = GetAddressInfo(stub, key); err != nil {
 					continue
 				}
-				fmt.Printf("AddToken : [%s], Token %d, Amount %s\n", key, vote.RewardToken, vote.Reward)
 				if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 					continue
 				}
-				fmt.Printf("Address : %s\n", key)
 				if err = SetAddressInfo(stub, key, voterData, "mrc030reward", []string{mrc030id, key, vote.Reward, strconv.Itoa(vote.RewardToken), "", "0", "", "", ""}); err != nil {
 					continue
 				}
-				fmt.Printf("Voter SET : %s\n", key)
 				vote.Voter[key] = 1
 			}
 		} else if len(vote.Voter) < (vote.MaxRewardRecipient * 2) { // 받지 못할 사람을 지정
-			fmt.Printf("Reward Except\n")
 			for key = range vote.Voter {
 				JoinerList[i] = key
 				i++
@@ -371,23 +359,18 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 				JoinerList = util.RemoveElement(JoinerList, int(n.Int64()))
 			}
 			for _, key = range JoinerList {
-				fmt.Printf("Address : [%s]\n", key)
 				if voterData, err = GetAddressInfo(stub, key); err != nil {
 					continue
 				}
-				fmt.Printf("AddToken : [%s], Token %d, Amount %s\n", key, vote.RewardToken, vote.Reward)
 				if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 					continue
 				}
-				fmt.Printf("setAddressInfo : %s\n", key)
 				if err = SetAddressInfo(stub, key, voterData, "mrc030reward", []string{mrc030id, key, vote.Reward, strconv.Itoa(vote.RewardToken), "", "0", "", "", ""}); err != nil {
 					continue
 				}
-				fmt.Printf("Voter SET : %s\n", key)
 				vote.Voter[key] = 1
 			}
 		} else { // 받을 사람을 지정
-			fmt.Printf("Reward Select\n")
 			for key := range vote.Voter {
 				JoinerList[i] = key
 				i++
@@ -399,20 +382,16 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 					return err
 				}
 				key = JoinerList[int(n.Int64())]
-				fmt.Printf("Address : [%s]\n", key)
 				JoinerList = util.RemoveElement(JoinerList, int(n.Int64()))
 				if voterData, err = GetAddressInfo(stub, key); err != nil {
 					continue
 				}
-				fmt.Printf("AddToken : [%s], Token %d, Amount %s\n", key, vote.RewardToken, vote.Reward)
 				if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 					continue
 				}
-				fmt.Printf("setAddressInfo : %s\n", key)
 				if err = SetAddressInfo(stub, key, voterData, "mrc030reward", []string{mrc030id, key, vote.Reward, strconv.Itoa(vote.RewardToken), "", "0", "", "", ""}); err != nil {
 					continue
 				}
-				fmt.Printf("Voter SET : %s\n", key)
 				vote.Voter[key] = 1
 				i++
 			}
@@ -469,11 +448,9 @@ func setMRC030(stub shim.ChaincodeStubInterface, MRC030ID string, tk mtc.MRC030,
 	}
 
 	if dat, err = json.Marshal(tk); err != nil {
-		fmt.Printf("setMRC030 json.Marshal(tk) [%s] Marshal error %s\n", MRC030ID, err)
 		return errors.New("4204,Invalid MRC030 data format")
 	}
 	if err = stub.PutState(MRC030ID, dat); err != nil {
-		fmt.Printf("setMRC030 stub.PutState(key, dat) [%s] Error %s\n", MRC030ID, err)
 		return errors.New("8600,Hyperledger internal error - " + err.Error())
 	}
 	return nil
@@ -499,7 +476,6 @@ func GetMRC030(stub shim.ChaincodeStubInterface, MRC030ID string) (mtc.MRC030, e
 		return tk, errors.New("4201,MRC030 " + MRC030ID + " not exists")
 	}
 	if err = json.Unmarshal(data, &tk); err != nil {
-		fmt.Printf("setMRC030 json.Unmarshal(key, dat) [%s] Error %s\n", MRC030ID, err)
 		return tk, errors.New("4204,Invalid MRC030 data format")
 	}
 	return tk, nil

@@ -169,6 +169,9 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 	}
 
 	buf, _ := json.Marshal(item)
+	if _, err = stub.GetState(exchangeItemPK); err != nil {
+		return errors.New("8100,Hyperledger internal error - " + err.Error())
+	}
 	if err = stub.PutState(exchangeItemPK, buf); err != nil {
 		return errors.New("8600,Hyperledger internal error - " + err.Error())
 	}

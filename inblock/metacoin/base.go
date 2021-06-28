@@ -30,7 +30,6 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 	var err error
 	var block *pem.Block
 	var address string
-	var dat []byte
 
 	mcData := mtc.MetaWallet{Regdate: time.Now().Unix(),
 		Addinfo:  addinfo,
@@ -45,12 +44,8 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 		w := util.MakeRandomString(30)
 		address = fmt.Sprintf("MT%30s%08x", w, crc32.Checksum([]byte(w), crc32.MakeTable(crc32.IEEE)))
 
-		dat, err = stub.GetState(address)
-		if err != nil { // already exists.
-			return "", errors.New("8600,Hyperledger internal error - " + err.Error())
-		}
-
-		if dat != nil {
+		_, err := stub.GetState(address)
+		if err != nil {
 			continue
 		} else {
 			isSuccess = true
@@ -73,7 +68,6 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 			if dt < 26 {
 				return "", errors.New("3103,Public key decode error " + publicKey)
 			}
-			fmt.Sprintf("Key DATA [%s]", publicKey)
 			var buf = make([]string, 3)
 			buf[0] = publicKey[0:26]
 			buf[1] = publicKey[26:dt]

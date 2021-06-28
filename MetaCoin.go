@@ -43,10 +43,8 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 	var err error
 
 	function, args := stub.GetFunctionAndParameters()
-	fmt.Printf("\nCall function : [%s]\n", function)
 	for idx, arg := range args {
 		args[idx] = strings.TrimSpace(arg)
-		fmt.Printf("\tParams %d : [%s]\n", idx, args[idx])
 	}
 
 	switch function {
@@ -61,16 +59,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 
 		if err = stub.PutState("DUMMY_IDX_"+args[0], []byte(args[0])); err != nil {
-			return shim.Error(err.Error())
-		}
-		break
-
-	case "set":
-		if len(args) < 2 {
-			return shim.Error("1000,get operation must include one arguments, address")
-		}
-
-		if err := stub.PutState(args[0], []byte(args[1])); err != nil {
 			return shim.Error(err.Error())
 		}
 		break

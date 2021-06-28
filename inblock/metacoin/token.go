@@ -69,6 +69,9 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 		return "", err
 	}
 
+	if len(tk.Type) == 0 {
+		tk.Type = "010"
+	}
 	tk.Token = currNo
 	tk.JobDate = time.Now().Unix()
 	tk.CreateDate = time.Now().Unix()
@@ -355,7 +358,7 @@ func TokenBurning(stub shim.ChaincodeStubInterface, TokenID, amount, signature, 
 	var BurnningAmount, BurnAmount decimal.Decimal
 
 	if BurnAmount, err = util.ParsePositive(amount); err != nil {
-		return errors.New("1206,Amount is must integer")
+		return errors.New("1206,The amount must be an integer")
 	}
 
 	if tk, _, err = GetToken(stub, TokenID); err != nil {

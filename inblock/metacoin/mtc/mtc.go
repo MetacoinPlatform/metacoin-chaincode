@@ -303,6 +303,40 @@ type MRC411 struct {
 	JobDate    int64  `json:"jobdate"`
 }
 
+// MRC011 : Coupon/Ticket base
+type MRC011 struct {
+	Creator      string `json:"creator"`
+	Name         string `json:"name"`
+	TotalSupply  int    `json:"totalsupply"`
+	UsedCount    int    `json:"used_count"`
+	PublishCount int    `json:"publish_count"`
+	RemainCount  int    `json:"remain_count"`
+	ValidityYype string `json:"validity_type"`
+	IsTransfer   int    `json:"is_transfer"`
+	StartDate    int64  `json:"start_date"`
+	EndDate      int64  `json:"end_date"`
+	Term         int    `json:"term"`
+	Code         string `json:"code"`
+	Data         string `json:"data"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
+}
+
+// MRC012 : Coupon/Ticket
+type MRC012 struct {
+	Creator    string `json:"creator"`
+	Owner      string `json:"owner"`
+	Name       string `json:"name"`
+	CreateDate int64  `json:"create_date"`
+	ExpireDate int64  `json:"expire_date"`
+	Code       string `json:"code"`
+	Data       string `json:"data"`
+	JobType    string `json:"job_type"`
+	JobArgs    string `json:"job_args"`
+	JobDate    int64  `json:"jobdate"`
+}
+
 // MRC030 : Item
 type MRC030 struct {
 	Creator            string               `json:"creator"`

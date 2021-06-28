@@ -301,7 +301,9 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	if len(MRC401Job) > 100 {
 		return errors.New("3002,There must be 100 or fewer create item")
 	}
-
+	if len(MRC401Job) < 1 {
+		return errors.New("3002,There is no item information.")
+	}
 	createTotal = make(map[string]decimal.Decimal)
 	now = time.Now().Unix()
 	logData = make([]mtc.MRC401Sell, 0, len(MRC401Job))
@@ -475,7 +477,10 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 		return errors.New("6205,MRC401 Data is in the wrong data - " + err.Error())
 	}
 	if len(MRC401Job) > 100 {
-		return errors.New("3002,There must be 100 or fewer create item")
+		return errors.New("3002,There must be 100 or fewer update item")
+	}
+	if len(MRC401Job) < 1 {
+		return errors.New("3002,There is no item information.")
 	}
 
 	keyCheck = make(map[string]int)
@@ -668,6 +673,9 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 	if len(MRC401SellData) > 100 {
 		return errors.New("3002,There must be 100 or fewer sell item")
 	}
+	if len(MRC401SellData) < 1 {
+		return errors.New("3002,There is no item information.")
+	}
 	// get seller info
 	if sellerData, err = GetAddressInfo(stub, seller); err != nil {
 		return err
@@ -776,6 +784,9 @@ func Mrc401UnSell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, 
 	}
 	if len(MRC401list) > 100 {
 		return errors.New("3002,There must be 100 or fewer unsell item")
+	}
+	if len(MRC401list) < 1 {
+		return errors.New("3002,There is no item information.")
 	}
 
 	// get seller info
@@ -1132,6 +1143,9 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 	if len(MRC401AuctionData) > 100 {
 		return errors.New("3002,There must be 100 or fewer sell item")
 	}
+	if len(MRC401AuctionData) < 1 {
+		return errors.New("3002,There is no item information.")
+	}
 	// get seller info
 	if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
 		return err
@@ -1258,7 +1272,9 @@ func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemDat
 	if len(MRC401list) > 100 {
 		return errors.New("3002,There must be 100 or fewer unauction item")
 	}
-
+	if len(MRC401list) < 1 {
+		return errors.New("3002,There is no item information.")
+	}
 	// get seller info
 	if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
 		return err

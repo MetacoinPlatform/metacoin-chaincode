@@ -628,8 +628,18 @@ func Mrc401Transfer(stub shim.ChaincodeStubInterface, mrc401id, fromAddr, toAddr
 	if MRC401ItemData.Owner != fromAddr {
 		return errors.New("3004,MRC401 [" + mrc401id + "] is not your item")
 	}
+
+	if toAddr == fromAddr {
+		return errors.New("3005,From address and to address must be different values")
+	}
+
 	// get owner info
 	if ownerWallet, err = GetAddressInfo(stub, fromAddr); err != nil {
+		return err
+	}
+
+	// get owner info
+	if _, err = GetAddressInfo(stub, toAddr); err != nil {
 		return err
 	}
 

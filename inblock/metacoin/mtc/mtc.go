@@ -111,20 +111,21 @@ type PricePair struct {
 
 // MRC400 for NFT Item project
 type MRC400 struct {
-	Owner        string `json:"owner"`
-	CreateDate   int64  `json:"createdate"` // read only
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	ImageURL     string `json:"image_url"`
-	Category     string `json:"category"`
-	Description  string `json:"description"`
-	ItemURL      string `json:"item_url"`
-	ItemImageURL string `json:"item_image_url"`
-	Data         string `json:"data"`
-	AllowToken   string `json:"allow_token"`
-	JobType      string `json:"job_type"`
-	JobArgs      string `json:"job_args"`
-	JobDate      int64  `json:"jobdate"`
+	Owner           string `json:"owner"`
+	CopyRightHolder string `json:"owner"`
+	CreateDate      int64  `json:"createdate"` // read only
+	Name            string `json:"name"`
+	URL             string `json:"url"`
+	ImageURL        string `json:"image_url"`
+	Category        string `json:"category"`
+	Description     string `json:"description"`
+	ItemURL         string `json:"item_url"`
+	ItemImageURL    string `json:"item_image_url"`
+	Data            string `json:"data"`
+	AllowToken      string `json:"allow_token"`
+	JobType         string `json:"job_type"`
+	JobArgs         string `json:"job_args"`
+	JobDate         int64  `json:"jobdate"`
 }
 
 // MRC401 for NFT ITEM
@@ -144,6 +145,9 @@ type MRC401 struct {
 	SellFee              string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
 	SellPrice            string `json:"sell_price"`      // 판매 금액
 	SellToken            string `json:"sell_token"`      // 판매 토큰
+	Platform             string `json:"platform"`        // 거래시 수수료를 받을 주소
+	PlatformFee          string `json:"platform_fee"`    // 거래 수수료(0.0001~ 99.9999%)
+	CopyRightHolderFee   string `json:"copyright_fee"`   // 거래 수수료(0.0001~ 99.9999%)
 	JobType              string `json:"job_type"`
 	JobArgs              string `json:"job_args"`
 	JobDate              int64  `json:"jobdate"`

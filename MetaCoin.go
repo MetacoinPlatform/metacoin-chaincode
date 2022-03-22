@@ -63,7 +63,7 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 		break
 
-	// Simple GET funhction
+	// Simple GET function
 	case "get":
 		if len(args) < 1 {
 			return shim.Error("1000,get operation must include one arguments, address")

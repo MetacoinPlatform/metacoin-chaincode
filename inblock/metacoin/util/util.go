@@ -73,7 +73,7 @@ func EcdsaSignVerify(PublicKeyPem, Data, Sign string) error {
 	}
 	block, _ = pem.Decode([]byte(PublicKeyPem))
 	if block == nil {
-		if strings.Index(PublicKeyPem, "\n") == -1 {
+		if !strings.Contains(PublicKeyPem, "\n") {
 			var dt = len(PublicKeyPem) - 24
 			var buf = make([]string, 3)
 			buf[0] = PublicKeyPem[0:26]
@@ -148,42 +148,42 @@ func DataAssign(src string, dest *string, dataType string, minLength int, maxLen
 			return nil
 		}
 		// allow empay for not update
-		if allowEmpty == true {
+		if allowEmpty {
 			return nil
 		}
 	}
 
 	if dataType == "address" {
 		if len(strings.TrimSpace(buf)) != 40 {
-			return errors.New("not address")
+			return errors.New("Invalid METACOIN address - " + buf)
 		}
 		if buf[:2] != "MT" {
-			return errors.New("not address")
+			return errors.New("Invalid METACOIN address - " + buf)
 		}
 
 		calcCRC := fmt.Sprintf("%08x", crc32.Checksum([]byte(buf[2:32]), crc32.MakeTable(crc32.IEEE)))
 		if buf[32:] != calcCRC {
-			return errors.New("not address")
+			return errors.New("Invalid METACOIN address - " + buf)
 		}
 	} else if dataType == "url" {
 		if u, err = url.ParseRequestURI(buf); err != nil {
-			return errors.New("invalid url")
+			return errors.New("invalid url - " + buf)
 		}
 
 		if u.Scheme != "http" && u.Scheme != "https" {
-			return errors.New("scheme is must http or https")
+			return errors.New("scheme is must http or https - " + buf)
 		}
 		if len(buf) > maxLength {
 			return errors.New("too long")
 		}
 	} else if dataType == "bool" {
 		if buf != "1" && buf == "0" {
-			return errors.New("data is must be 1 or 0")
+			return errors.New("data is must be 1 or 0 - " + buf)
 		}
 	} else if dataType == "id" {
 		r, _ := regexp.Compile("^[a-zA-Z0-9]{" + strconv.Itoa(minLength) + "," + strconv.Itoa(maxLength) + "}$")
-		if r.MatchString(buf) == false {
-			return errors.New("not valid data")
+		if !r.MatchString(buf) {
+			return errors.New("not valid data - " + buf)
 		}
 	} else {
 		if len(buf) < minLength {
@@ -201,50 +201,75 @@ func DataAssign(src string, dest *string, dataType string, minLength int, maxLen
 	return nil
 }
 
+func DecimalCountCheck(src string, maxDecimal int) error {
+	if maxDecimal == 0 {
+		if strings.Contains(src, ".") {
+			return errors.New("decimal is big")
+		}
+	}
+	if maxDecimal > 0 {
+		r, _ := regexp.Compile("^[-]?[0-9]+(|(\\.[0-9]{1," + strconv.Itoa(maxDecimal) + "}))$")
+		if !r.MatchString(src) {
+			return errors.New(" is invalid data")
+		}
+	} else {
+		r, _ := regexp.Compile("^[-]?[0-9]+$")
+		if !r.MatchString(src) {
+			return errors.New(" is invalid data")
+		}
+	}
+
+	return nil
+}
+
 // NumericDataCheck string length check and return trimming
 func NumericDataCheck(src string, dest *string, minValue string, maxValue string, maxDecimal int, allowEmpty bool) error {
 	var err error
 	var dmin, dmax, dsrc decimal.Decimal
 
 	buf := strings.TrimSpace(src)
-	if allowEmpty == true && len(buf) == 0 {
+	if allowEmpty && len(buf) == 0 {
 		return nil
 	}
 
 	if maxDecimal > 0 {
 		r, _ := regexp.Compile("^[-]?[0-9]+(|(\\.[0-9]{1," + strconv.Itoa(maxDecimal) + "}))$")
-		if r.MatchString(buf) == false {
+		if !r.MatchString(buf) {
 			return errors.New(" is invalid data")
 		}
 	} else {
 		r, _ := regexp.Compile("^[-]?[0-9]+$")
-		if r.MatchString(buf) == false {
+		if !r.MatchString(buf) {
 			return errors.New(" is invalid data")
 		}
-	}
-
-	if dmin, err = decimal.NewFromString(minValue); err != nil {
-		return errors.New(" minValue invalid")
-	}
-
-	if dmax, err = decimal.NewFromString(maxValue); err != nil {
-		return errors.New(" maxValue invalid")
 	}
 
 	if dsrc, err = decimal.NewFromString(buf); err != nil {
 		return err
 	}
 
-	if dsrc.Cmp(dmin) < 0 {
-		return errors.New(" must be bigger then " + minValue)
+	if minValue != "" {
+		if dmin, err = decimal.NewFromString(minValue); err != nil {
+			return errors.New(" minValue invalid")
+		}
+
+		if dsrc.Cmp(dmin) < 0 {
+			return errors.New(" must be bigger then " + minValue)
+		}
 	}
 
-	if dsrc.Cmp(dmax) > 0 {
-		return errors.New(" must be smaller then " + maxValue)
+	if maxValue != "" {
+		if dmax, err = decimal.NewFromString(maxValue); err != nil {
+			return errors.New(" maxValue invalid")
+		}
+
+		if dsrc.Cmp(dmax) > 0 {
+			return errors.New(" must be smaller then " + maxValue)
+		}
 	}
 
 	if dest != nil {
-		*dest = buf
+		*dest = dsrc.String()
 	}
 	return nil
 }
@@ -252,17 +277,14 @@ func NumericDataCheck(src string, dest *string, minValue string, maxValue string
 // IsAddress - address check
 func IsAddress(address string) bool {
 	if len(strings.TrimSpace(address)) != 40 {
-		return true
+		return false
 	}
 	if address[:2] != "MT" {
-		return true
+		return false
 	}
 
 	calcCRC := fmt.Sprintf("%08x", crc32.Checksum([]byte(address[2:32]), crc32.MakeTable(crc32.IEEE)))
-	if address[32:] != calcCRC {
-		return true
-	}
-	return false
+	return address[32:] == calcCRC
 }
 
 // Strtoint to int.
@@ -328,7 +350,7 @@ func ParsePositive(s string) (decimal.Decimal, error) {
 	if d, err = decimal.NewFromString(s); err != nil {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
-	if isNumeric(s) == false {
+	if !isNumeric(s) {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
 	if !d.IsPositive() {
@@ -346,7 +368,7 @@ func ParseNotNegative(s string) (decimal.Decimal, error) {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
 
-	if isNumeric(s) == false {
+	if !isNumeric(s) {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
 
@@ -363,4 +385,268 @@ func JSONEncode(v interface{}) string {
 	} else {
 		return ""
 	}
+}
+
+func ISO3166Check(country_code string) error {
+	if country_code == "" {
+		return nil
+	}
+	var iso3166 = [...]string{
+		"AD", // Andorra
+		"AE", // United Arab Emirates
+		"AF", // Afghanistan
+		"AG", // Antigua and Barbuda
+		"AI", // Anguilla
+		"AL", // Albania
+		"AM", // Armenia
+		"AO", // Angola
+		"AQ", // Antarctica
+		"AR", // Argentina
+		"AS", // American Samoa
+		"AT", // Austria
+		"AU", // Australia
+		"AW", // Aruba
+		"AX", // Åland Islands
+		"AZ", // Azerbaijan
+		"BA", // Bosnia and Herzegovina
+		"BB", // Barbados
+		"BD", // Bangladesh
+		"BE", // Belgium
+		"BF", // Burkina Faso
+		"BG", // Bulgaria
+		"BH", // Bahrain
+		"BI", // Burundi
+		"BJ", // Benin
+		"BL", // Saint Barthélemy
+		"BM", // Bermuda
+		"BN", // Brunei Darussalam
+		"BO", // Bolivia (Plurinational State of)
+		"BQ", // Bonaire, Sint Eustatius and Saba
+		"BR", // Brazil
+		"BS", // Bahamas
+		"BT", // Bhutan
+		"BV", // Bouvet Island
+		"BW", // Botswana
+		"BY", // Belarus
+		"BZ", // Belize
+		"CA", // Canada
+		"CC", // Cocos (Keeling) Islands
+		"CD", // Congo (Democratic Republic of the)
+		"CF", // Central African Republic
+		"CG", // Congo
+		"CH", // Switzerland
+		"CI", // Côte d'Ivoire
+		"CK", // Cook Islands
+		"CL", // Chile
+		"CM", // Cameroon
+		"CN", // China
+		"CO", // Colombia
+		"CR", // Costa Rica
+		"CU", // Cuba
+		"CV", // Cabo Verde
+		"CW", // Curaçao
+		"CX", // Christmas Island
+		"CY", // Cyprus
+		"CZ", // Czechia
+		"DE", // Germany
+		"DJ", // Djibouti
+		"DK", // Denmark
+		"DM", // Dominica
+		"DO", // Dominican Republic
+		"DZ", // Algeria
+		"EC", // Ecuador
+		"EE", // Estonia
+		"EG", // Egypt
+		"EH", // Western Sahara
+		"ER", // Eritrea
+		"ES", // Spain
+		"ET", // Ethiopia
+		"FI", // Finland
+		"FJ", // Fiji
+		"FK", // Falkland Islands (Malvinas)
+		"FM", // Micronesia (Federated States of)
+		"FO", // Faroe Islands
+		"FR", // France
+		"GA", // Gabon
+		"GB", // United Kingdom of Great Britain and Northern Ireland
+		"GD", // Grenada
+		"GE", // Georgia
+		"GF", // French Guiana
+		"GG", // Guernsey
+		"GH", // Ghana
+		"GI", // Gibraltar
+		"GL", // Greenland
+		"GM", // Gambia
+		"GN", // Guinea
+		"GP", // Guadeloupe
+		"GQ", // Equatorial Guinea
+		"GR", // Greece
+		"GS", // South Georgia and the South Sandwich Islands
+		"GT", // Guatemala
+		"GU", // Guam
+		"GW", // Guinea-Bissau
+		"GY", // Guyana
+		"HK", // Hong Kong
+		"HM", // Heard Island and McDonald Islands
+		"HN", // Honduras
+		"HR", // Croatia
+		"HT", // Haiti
+		"HU", // Hungary
+		"ID", // Indonesia
+		"IE", // Ireland
+		"IL", // Israel
+		"IM", // Isle of Man
+		"IN", // India
+		"IO", // British Indian Ocean Territory
+		"IQ", // Iraq
+		"IR", // Iran (Islamic Republic of)
+		"IS", // Iceland
+		"IT", // Italy
+		"JE", // Jersey
+		"JM", // Jamaica
+		"JO", // Jordan
+		"JP", // Japan
+		"KE", // Kenya
+		"KG", // Kyrgyzstan
+		"KH", // Cambodia
+		"KI", // Kiribati
+		"KM", // Comoros
+		"KN", // Saint Kitts and Nevis
+		"KP", // Korea (Democratic People's Republic of)
+		"KR", // Korea (Republic of)
+		"KW", // Kuwait
+		"KY", // Cayman Islands
+		"KZ", // Kazakhstan
+		"LA", // Lao People's Democratic Republic
+		"LB", // Lebanon
+		"LC", // Saint Lucia
+		"LI", // Liechtenstein
+		"LK", // Sri Lanka
+		"LR", // Liberia
+		"LS", // Lesotho
+		"LT", // Lithuania
+		"LU", // Luxembourg
+		"LV", // Latvia
+		"LY", // Libya
+		"MA", // Morocco
+		"MC", // Monaco
+		"MD", // Moldova (Republic of)
+		"ME", // Montenegro
+		"MF", // Saint Martin (French part)
+		"MG", // Madagascar
+		"MH", // Marshall Islands
+		"MK", // North Macedonia
+		"ML", // Mali
+		"MM", // Myanmar
+		"MN", // Mongolia
+		"MO", // Macao
+		"MP", // Northern Mariana Islands
+		"MQ", // Martinique
+		"MR", // Mauritania
+		"MS", // Montserrat
+		"MT", // Malta
+		"MU", // Mauritius
+		"MV", // Maldives
+		"MW", // Malawi
+		"MX", // Mexico
+		"MY", // Malaysia
+		"MZ", // Mozambique
+		"NA", // Namibia
+		"NC", // New Caledonia
+		"NE", // Niger
+		"NF", // Norfolk Island
+		"NG", // Nigeria
+		"NI", // Nicaragua
+		"NL", // Netherlands
+		"NO", // Norway
+		"NP", // Nepal
+		"NR", // Nauru
+		"NU", // Niue
+		"NZ", // New Zealand
+		"OM", // Oman
+		"PA", // Panama
+		"PE", // Peru
+		"PF", // French Polynesia
+		"PG", // Papua New Guinea
+		"PH", // Philippines
+		"PK", // Pakistan
+		"PL", // Poland
+		"PM", // Saint Pierre and Miquelon
+		"PN", // Pitcairn
+		"PR", // Puerto Rico
+		"PS", // Palestine, State of
+		"PT", // Portugal
+		"PW", // Palau
+		"PY", // Paraguay
+		"QA", // Qatar
+		"RE", // Réunion
+		"RO", // Romania
+		"RS", // Serbia
+		"RU", // Russian Federation
+		"RW", // Rwanda
+		"SA", // Saudi Arabia
+		"SB", // Solomon Islands
+		"SC", // Seychelles
+		"SD", // Sudan
+		"SE", // Sweden
+		"SG", // Singapore
+		"SH", // Saint Helena, Ascension and Tristan da Cunha
+		"SI", // Slovenia
+		"SJ", // Svalbard and Jan Mayen
+		"SK", // Slovakia
+		"SL", // Sierra Leone
+		"SM", // San Marino
+		"SN", // Senegal
+		"SO", // Somalia
+		"SR", // Suriname
+		"SS", // South Sudan
+		"ST", // Sao Tome and Principe
+		"SV", // El Salvador
+		"SX", // Sint Maarten (Dutch part)
+		"SY", // Syrian Arab Republic
+		"SZ", // Eswatini
+		"TC", // Turks and Caicos Islands
+		"TD", // Chad
+		"TF", // French Southern Territories
+		"TG", // Togo
+		"TH", // Thailand
+		"TJ", // Tajikistan
+		"TK", // Tokelau
+		"TL", // Timor-Leste
+		"TM", // Turkmenistan
+		"TN", // Tunisia
+		"TO", // Tonga
+		"TR", // Turkey
+		"TT", // Trinidad and Tobago
+		"TV", // Tuvalu
+		"TW", // Taiwan (Province of China)
+		"TZ", // Tanzania, United Republic of
+		"UA", // Ukraine
+		"UG", // Uganda
+		"UM", // United States Minor Outlying Islands
+		"US", // United States of America
+		"UY", // Uruguay
+		"UZ", // Uzbekistan
+		"VA", // Holy See
+		"VC", // Saint Vincent and the Grenadines
+		"VE", // Venezuela (Bolivarian Republic of)
+		"VG", // Virgin Islands (British)
+		"VI", // Virgin Islands (U.S.)
+		"VN", // Viet Nam
+		"VU", // Vanuatu
+		"WF", // Wallis and Futuna
+		"WS", // Samoa
+		"YE", // Yemen
+		"YT", // Mayotte
+		"ZA", // South Africa
+		"ZM", // Zambia
+		"ZW", // Zimbabwe
+	}
+
+	for _, n := range iso3166 {
+		if country_code == n {
+			return nil
+		}
+	}
+	return errors.New(country_code + " is not country code")
 }

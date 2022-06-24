@@ -37,7 +37,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 		JobDate:  time.Now().Unix(),
 		JobType:  "NewWallet",
 		Nonce:    util.MakeRandomString(40),
-		Balance:  []mtc.BalanceInfo{mtc.BalanceInfo{Balance: "0", Token: 0, UnlockDate: 0}}}
+		Balance:  []mtc.BalanceInfo{{Balance: "0", Token: 0, UnlockDate: 0}}}
 
 	var isSuccess = false
 	for i := 1; i <= 10; i++ {
@@ -71,7 +71,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 			var buf = make([]string, 3)
 			buf[0] = publicKey[0:26]
 			buf[1] = publicKey[26:dt]
-			buf[2] = publicKey[dt:len(publicKey)]
+			buf[2] = publicKey[dt:]
 			publicKey = strings.Join(buf, "\n")
 		}
 		block, _ = pem.Decode([]byte(publicKey))
@@ -132,8 +132,8 @@ func BalanceOf(stub shim.ChaincodeStubInterface, address string) (string, error)
 	return string(value), nil
 }
 
-// AddToken 잔액 추가
-func AddToken(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN string, amount string, iUnlockDate int64) error {
+// MRC010Add 잔액 추가
+func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN string, amount string, iUnlockDate int64) error {
 	var err error
 	var toCoin, addAmount decimal.Decimal
 	var toIDX, iTokenSN int
@@ -181,8 +181,8 @@ func AddToken(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN 
 	return nil
 }
 
-// SubtractToken 잔액 감소
-func SubtractToken(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN string, amount string) error {
+// MRC010Subtract 잔액 감소
+func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN string, amount string) error {
 	var err error
 	var subtractAmount, fromCoin decimal.Decimal
 	var fromIDX int
@@ -224,6 +224,7 @@ func SubtractToken(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, Tok
 		} else {
 			wallet.Balance[fromIDX].Balance = fromCoin.Sub(subtractAmount).String()
 			subtractAmount = subtractAmount.Sub(subtractAmount)
+
 			break
 		}
 	}
@@ -345,10 +346,10 @@ func Transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, transferAmount
 	var fromData, toData mtc.MetaWallet
 	var iUnlockDate int64
 
-	if util.IsAddress(fromAddr) {
+	if !util.IsAddress(fromAddr) {
 		return errors.New("3001,Invalid from address")
 	}
-	if util.IsAddress(toAddr) {
+	if !util.IsAddress(toAddr) {
 		return errors.New("3002,Invalid to address")
 	}
 	if fromAddr == toAddr {
@@ -399,7 +400,7 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 	var target []mtc.MultiTransferList
 	var toList map[string]int
 
-	if util.IsAddress(fromAddr) {
+	if !util.IsAddress(fromAddr) {
 		return errors.New("3001,Invalid from address")
 	}
 	if fromData, err = GetAddressInfo(stub, fromAddr); err != nil {
@@ -428,7 +429,7 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 
 	toList = make(map[string]int)
 	for _, ele := range target {
-		if util.IsAddress(ele.Address) {
+		if !util.IsAddress(ele.Address) {
 			return errors.New("3002,Invalid to address")
 		}
 		if _, exists := toList[ele.Address]; exists != false {
@@ -532,7 +533,7 @@ func NonceCheckOnly(walletData *mtc.MetaWallet, nonce, Data, signature string) e
 func GetAddressInfo(stub shim.ChaincodeStubInterface, key string) (mtc.MetaWallet, error) {
 	var mcData mtc.MetaWallet
 
-	if util.IsAddress(key) {
+	if !util.IsAddress(key) {
 		return mcData, errors.New("3190,[" + key + "] is not Metacoin address")
 	}
 	value, err := stub.GetState(key)

@@ -13,8 +13,8 @@ import (
 	"inblock/metacoin/util"
 )
 
-// setMRC011 : save MRC011
-func setMRC011(stub shim.ChaincodeStubInterface, MRC011ID string, tk mtc.MRC011, JobType string, args []string) error {
+// Mrc011set : save MRC011
+func Mrc011set(stub shim.ChaincodeStubInterface, MRC011ID string, tk mtc.MRC011, JobType string, args []string) error {
 	var dat []byte
 	var err error
 	if len(MRC011ID) != 40 {
@@ -44,8 +44,8 @@ func setMRC011(stub shim.ChaincodeStubInterface, MRC011ID string, tk mtc.MRC011,
 	return nil
 }
 
-// GetMRC011 : get MRC011
-func GetMRC011(stub shim.ChaincodeStubInterface, MRC011ID string) (mtc.MRC011, error) {
+// Mrc011get : get MRC011
+func Mrc011get(stub shim.ChaincodeStubInterface, MRC011ID string) (mtc.MRC011, error) {
 	var data []byte
 	var tk mtc.MRC011
 	var err error
@@ -164,5 +164,5 @@ func MRC011Create(stub shim.ChaincodeStubInterface, mrc011id, creator, name, tot
 	mrc011.Code = code
 	mrc011.Data = data
 
-	return setMRC011(stub, mrc011id, mrc011, "mrc011create", args)
+	return Mrc011set(stub, mrc011id, mrc011, "mrc011create", args)
 }

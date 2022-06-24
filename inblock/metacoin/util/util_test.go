@@ -3,15 +3,10 @@ package util
 import (
 	"strings"
 	"testing"
-
-	"github.com/shopspring/decimal"
 )
 
 func tParseNotNegative(t *testing.T, s string, isSuccess bool) {
-	var d decimal.Decimal
-	var e error
-
-	d, e = ParseNotNegative(s)
+	d, e := ParseNotNegative(s)
 	if isSuccess {
 		if e != nil {
 			t.Fatalf(`ParseNotNegative("%s") = %q, %v, Bad error occurred %#q`, s, d.String(), e, s)
@@ -24,10 +19,7 @@ func tParseNotNegative(t *testing.T, s string, isSuccess bool) {
 }
 
 func tParsePositive(t *testing.T, s string, isSuccess bool) {
-	var d decimal.Decimal
-	var e error
-
-	d, e = ParsePositive(s)
+	d, e := ParsePositive(s)
 	if isSuccess {
 		if e != nil {
 			t.Fatalf(` ParsePositive("%s") = %q, %v, Bad error occurred %#q`, s, d.String(), e, s)
@@ -40,10 +32,8 @@ func tParsePositive(t *testing.T, s string, isSuccess bool) {
 }
 
 func tDataAssign(t *testing.T, s string, dataType string, minLength int, maxLength int, allowEmpty bool, isSuccess bool) {
-	var dummy string
-	var e error
-	dummy = ""
-	e = DataAssign(s, &dummy, dataType, minLength, maxLength, allowEmpty)
+	dummy := ""
+	e := DataAssign(s, &dummy, dataType, minLength, maxLength, allowEmpty)
 	if isSuccess {
 		if e != nil {
 			t.Fatalf(` DataAssign("%s") = %q, %v, Bad error occurred %#q`, s, dummy, e, s)
@@ -63,9 +53,8 @@ func tDataAssign(t *testing.T, s string, dataType string, minLength int, maxLeng
 }
 
 func tNumericDataCheck(t *testing.T, s string, minValue string, maxValue string, maxDecimal int, allowEmpty bool, isSuccess bool) {
-	var dummy string
-	var e error
-	e = NumericDataCheck(s, &dummy, minValue, maxValue, maxDecimal, allowEmpty)
+	dummy := ""
+	e := NumericDataCheck(s, &dummy, minValue, maxValue, maxDecimal, allowEmpty)
 	if isSuccess {
 		if e != nil {
 			t.Fatalf(` DataAssign("%s") = %q, %v, Bad error occurred %#q`, s, dummy, e, s)
@@ -80,6 +69,30 @@ func tNumericDataCheck(t *testing.T, s string, minValue string, maxValue string,
 			t.Fatalf(` DataAssign("%s") = %q,  Wrong success %#q`, s, dummy, s)
 		}
 	}
+}
+
+func tDecimalCountCheck(t *testing.T, s string, decimalCount int, isSuccess bool) {
+	e := DecimalCountCheck(s, decimalCount)
+	if isSuccess {
+		if e != nil {
+			t.Fatalf(` DataAssign("%s") = %q, %v, Bad error occurred %#q`, s, decimalCount, isSuccess, s)
+		}
+	} else {
+		if e == nil {
+			t.Fatalf(` DataAssign("%s") = %q, %v, Wrong success %#q`, s, decimalCount, isSuccess, s)
+		}
+	}
+}
+
+func TestDecimalCountCheck(t *testing.T) {
+	tDecimalCountCheck(t, "0.0", 1, true)
+	tDecimalCountCheck(t, "0.0001", 1, false)
+	tDecimalCountCheck(t, "0.0001", 4, true)
+	tDecimalCountCheck(t, "aabb", 4, false)
+	tDecimalCountCheck(t, "0", 4, true)
+	tDecimalCountCheck(t, "0", 0, true)
+	tDecimalCountCheck(t, "12389128903.0", 4, true)
+	tDecimalCountCheck(t, "1.12345", 4, false)
 }
 
 // TestHelloName calls greetings.Hello with a name, checking
@@ -154,6 +167,7 @@ func TestDataAssign(t *testing.T) {
 }
 
 func TestNumericDataCheck(t *testing.T) {
+	tNumericDataCheck(t, "101", "100", "200", 1, false, true)
 	tNumericDataCheck(t, "123.1", "100", "200", 1, false, true)
 	tNumericDataCheck(t, "1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890.1", "100", "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999", 1, false, true)
 	tNumericDataCheck(t, "1.1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890", "1", "99999999999999999999999999999999999999999999999999", 999, false, true)
@@ -170,4 +184,8 @@ func TestNumericDataCheck(t *testing.T) {
 	tNumericDataCheck(t, "1-2", "-100", "200", 0, false, false)
 	tNumericDataCheck(t, "123", "1000", "10000", 0, false, false)
 	tNumericDataCheck(t, "123.123", "1000", "10000", 2, false, false)
+	tNumericDataCheck(t, "aa", "100", "200", 1, false, false)
+	tNumericDataCheck(t, "105", "33dd", "200", 1, false, false)
+	tNumericDataCheck(t, "105", "dd", "cc200", 1, false, false)
+
 }

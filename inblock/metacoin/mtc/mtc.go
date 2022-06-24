@@ -14,16 +14,23 @@ const InitSupply = 800000000
 
 // MetaWallet - wallet data.
 type MetaWallet struct {
-	Regdate  int64             `json:"regdate"`
-	Password string            `json:"password"`
-	Addinfo  string            `json:"addinfo"`
-	JobType  string            `json:"job_type"`
-	JobArgs  string            `json:"job_args"`
-	JobDate  int64             `json:"jobdate"`
-	Balance  []BalanceInfo     `json:"balance"`
-	Mrc800   map[string]string `json:"mrc800"`
-	Pending  map[int]string    `json:"pending"`
-	Nonce    string            `json:"nonce"`
+	Regdate  int64                 `json:"regdate"`
+	Password string                `json:"password"`
+	Addinfo  string                `json:"addinfo"`
+	JobType  string                `json:"job_type"`
+	JobArgs  string                `json:"job_args"`
+	JobDate  int64                 `json:"jobdate"`
+	Balance  []BalanceInfo         `json:"balance"`
+	MRC402   map[string]NFTBalance `json:"mrc402"`
+	MRC800   map[string]string     `json:"mrc800"`
+	Pending  map[int]string        `json:"pending"`
+	Nonce    string                `json:"nonce"`
+}
+
+type NFTBalance struct {
+	Balance       string `json:"balance"`
+	SaleAmount    string `json:"saleamount"`
+	AuctionAmount string `json:"auctionamount"`
 }
 
 // BalanceInfo - token balance info with unlockdate
@@ -109,23 +116,33 @@ type PricePair struct {
 	Token  string `json:"token"`
 }
 
+// logDataBuy multi payyment info
+type PaymentInfo struct {
+	FromAddr    string `json:"from_addr"`
+	ToAddr      string `json:"to_addr"`
+	Amount      string `json:"amount"`
+	TokenID     string `json:"token"`
+	TradeAmount string `json:"trade_amount"`
+	TradeID     string `json:"trade_id"`
+	PayType     string `json:"type"`
+}
+
 // MRC400 for NFT Item project
 type MRC400 struct {
-	Owner           string `json:"owner"`
-	CopyRightHolder string `json:"owner"`
-	CreateDate      int64  `json:"createdate"` // read only
-	Name            string `json:"name"`
-	URL             string `json:"url"`
-	ImageURL        string `json:"image_url"`
-	Category        string `json:"category"`
-	Description     string `json:"description"`
-	ItemURL         string `json:"item_url"`
-	ItemImageURL    string `json:"item_image_url"`
-	Data            string `json:"data"`
-	AllowToken      string `json:"allow_token"`
-	JobType         string `json:"job_type"`
-	JobArgs         string `json:"job_args"`
-	JobDate         int64  `json:"jobdate"`
+	Owner        string `json:"owner"`
+	CreateDate   int64  `json:"createdate"` // read only
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	ImageURL     string `json:"image_url"`
+	Category     string `json:"category"`
+	Description  string `json:"description"`
+	ItemURL      string `json:"item_url"`
+	ItemImageURL string `json:"item_image_url"`
+	Data         string `json:"data"`
+	AllowToken   string `json:"allow_token"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
 }
 
 // MRC401 for NFT ITEM
@@ -145,9 +162,6 @@ type MRC401 struct {
 	SellFee              string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
 	SellPrice            string `json:"sell_price"`      // 판매 금액
 	SellToken            string `json:"sell_token"`      // 판매 토큰
-	Platform             string `json:"platform"`        // 거래시 수수료를 받을 주소
-	PlatformFee          string `json:"platform_fee"`    // 거래 수수료(0.0001~ 99.9999%)
-	CopyRightHolderFee   string `json:"copyright_fee"`   // 거래 수수료(0.0001~ 99.9999%)
 	JobType              string `json:"job_type"`
 	JobArgs              string `json:"job_args"`
 	JobDate              int64  `json:"jobdate"`
@@ -195,6 +209,72 @@ type MRC401Auction struct {
 	AuctionBiddingUnit string `json:"bidding"` // 경매 입찰 단위
 	AuctionStartPrice  string `json:"start"`   // 경매 시작 금액
 	AuctionBuyNowPrice string `json:"buynow"`  // 경매 즉시 구매 금액
+}
+
+// Token MRC402 - NFT TOKEN
+type MRC402 struct {
+	Id                string `json:"id"`                // MRC 402 ID
+	Creator           string `json:"creator"`           // 생성자
+	CreatorCommission string `json:"creatorcommission"` // 판매/경매시 생성자가 가져가는 수수료 (0~10%)
+	TotalSupply       string `json:"totalsupply"`       // 총 발행량 - 현재 유통량
+	MeltedAmount      string `json:"meltedamount"`      // Melt된 수량
+
+	Decimal     int    `json:"decimal"`     // 가능하면 0 으로 할것.
+	Name        string `json:"name"`        // 외부에 노출되는 이름
+	ExpireDate  int64  `json:"expiredate"`  // 만기 일자 - unix timestamp
+	ImageURL    string `json:"image"`       // Image URL
+	URL         string `json:"url"`         // 수정가능 - URL
+	Data        string `json:"data"`        // 수정가능 - Data Non-human readable text may be json object ?
+	Info        string `json:"info"`        // 수정가능 - Human readable text. aka Markdown
+	SocialMedia string `json:"socialmedia"` // 수정가능 - {"twitter" : "https:// ...",  "We Schedule" : "https://domain.com/path" }
+	// Icon with Description site : twitter, facebook, telegram,  instagram, youtube, tiktok, snapchat,
+	//                              discord, twitch, pinterest, linkedin, wechat, qq, douyin, weibo, github
+
+	CopyrightRegCountry string `json:"copyright_registration_country"`
+	CopyrightRegistrar  string `json:"copyright_registrar"`
+	CopyrightRegNumber  string `json:"copyright_registration_number"`
+
+	ShareHolder    map[string]string `json:"shareholder"`    // { 저작권자 주소 : 판매/경매시 해당 주소가 가져가는 수수료 (0~10%)}
+	InitialReserve map[string]string `json:"initialreserve"` // 토큰 1개 소각시 받을 수 있는 자산 목록   { tokenID : amount }
+
+	JobType string `json:"job_type"`
+	JobArgs string `json:"job_args"`
+	JobDate int64  `json:"jobdate"`
+}
+
+type MRC402DEX struct {
+	Id           string `json:"dexid"`
+	MRC402       string `json:"mrc402"` // MRC402 ID
+	Seller       string `json:"seller"` // 판매자
+	Buyer        string `json:"buyer"`  // 판매자
+	Amount       string `json:"amount"` // 총 판매 수량
+	RemainAmount string `json:"remain_amount"`
+
+	PlatformName       string `json:"platform_name"` // 플렛폼 이름
+	PlatformURL        string `json:"platform_url"`
+	PlatformAddress    string `json:"platform_address"`    // 판매/경매시 수수료를 받을 플렛폼 주소
+	PlatformCommission string `json:"platform_commission"` // 판매/경매시 수수료를 받을 플렛폼가 가져가는 수수료 (0~10%)
+
+	RegDate    int64 `json:"regdate"`     // 등록 일시		must 0 <
+	SellDate   int64 `json:"sell_date"`   // 거래 완료 일시  0 : not sale or auction finish, 0 < : sale or auction win
+	CancelDate int64 `json:"cancel_date"` // 취소 일시		0 : not cancel, 0 < : canceled
+
+	SellPrice string `json:"sell_price"` // 판매 금액
+	SellToken string `json:"sell_token"` // 거래 가능 토큰
+
+	AuctionBidCount      int    `json:"auction_bid_count"`
+	AuctionStartDate     int64  `json:"auction_start_date"`     // 경매 시작 일시	0 < : auction item, 0: not auction item
+	AuctionEndDate       int64  `json:"auction_end_date"`       // 경매 종료 일시   0 < : auction item
+	AuctionSettledDate   int64  `json:"auction_settle_date"`    // 경매 정산 일시   0 < : trade or auction settled, 0: not yet.
+	AuctionBiddingUnit   string `json:"auction_bidding_unit"`   // 경매 최소 입찰 단위	0 : free bidding
+	AuctionStartPrice    string `json:"auction_start_price"`    // 경매 시작 금액		0 < : auction item
+	AuctionBuyNowPrice   string `json:"auction_buynow_price"`   // 경매 즉시 구매 금액
+	AuctionCurrentPrice  string `json:"auction_current_price"`  // 경매 현 금액		"" : nothing bidder
+	AuctionCurrentBidder string `json:"auction_current_bidder"` // 현재 입찰자		"" : nothing bidder
+
+	JobType string `json:"job_type"`
+	JobArgs string `json:"job_args"`
+	JobDate int64  `json:"jobdate"`
 }
 
 // MRC400 for NFT Item project

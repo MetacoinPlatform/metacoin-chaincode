@@ -9,8 +9,8 @@ version 2.0		2020-11-07
 				address generate built-in
 
 version 2.1		2021-02-14
-				MRC 110, 111 - NFT
 
+version 2.2     MRC 400, 401, 402 - NFT
 */
 import (
 	"fmt"
@@ -41,6 +41,7 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 	var tkey string
 	var value string
 	var err error
+	var bytes []byte
 
 	function, args := stub.GetFunctionAndParameters()
 	for idx, arg := range args {
@@ -61,7 +62,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = stub.PutState("DUMMY_IDX_"+args[0], []byte(args[0])); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	// Simple GET funhction
 	case "get":
@@ -110,7 +110,7 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error("1000,balanceOf operation must include one argument : address")
 		}
 		address := args[0]
-		if util.IsAddress(address) {
+		if !util.IsAddress(address) {
 			return shim.Error("Invalid address format")
 		}
 
@@ -141,7 +141,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "signcheck":
 		if len(args) < 3 {
@@ -157,7 +156,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "multitransfer":
 		if len(args) < 5 {
@@ -175,7 +173,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "tokenRegister":
 		if len(args) < 3 {
@@ -204,7 +201,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.TokenSetBase(stub, TokenID, BaseTokenSN, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "tokenAddTarget":
 		if len(args) < 4 {
@@ -218,7 +214,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.TokenAddTarget(stub, TokenID, TargetTokenSN, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "tokenRemoveTarget":
 		if len(args) < 2 {
@@ -233,8 +228,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error(err.Error())
 		}
 
-		break
-
 	case "tokenUpdate":
 		if len(args) < 6 {
 			return shim.Error("1000,tokenRemoveTarget operation must include four arguments : TokenID, url, info, image, sign, tkey")
@@ -248,7 +241,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.TokenUpdate(stub, TokenID, url, info, image, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "tokenBurning":
 		if len(args) < 4 {
@@ -261,7 +253,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.TokenBurning(stub, TokenID, amount, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "tokenIncrease":
 		if len(args) < 4 {
@@ -275,8 +266,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error(err.Error())
 		}
 
-		break
-
 	case "tokenAddLogger":
 		if len(args) < 4 {
 			return shim.Error("1000,tokenAddLogger operation must include four arguments : TokenID, logger, sign, tkey")
@@ -289,7 +278,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.TokenAddLogger(stub, TokenID, logger, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "tokenRemoveLogger":
 		if len(args) < 4 {
@@ -303,8 +291,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.TokenRemoveLogger(stub, TokenID, logger, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-
-		break
 
 	case "stodexRegister":
 		if len(args) < 9 {
@@ -324,7 +310,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.StodexRegister(stub, owner, side, BaseToken, TargetToken, price, qtt, exchangeItemPK, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "stodexUnRegister":
 		if len(args) < 4 {
@@ -339,7 +324,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.StodexUnRegister(stub, owner, exchangeItemPK, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "stodexExchange":
 		if len(args) < 6 {
@@ -356,7 +340,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.StodexExchange(stub, requester, qtt, exchangeItemPK, exchangePK, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "exchange":
 		if len(args) < 20 {
@@ -397,7 +380,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc020":
 		if len(args) < 8 {
@@ -452,7 +434,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.MRC030Create(stub, mrc030id, Creator, Title, Description, StartDate, EndDate, Reward, RewardToken, MaxRewardRecipient, RewardType, URL, Question, SignNeed, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc030join":
 		if len(args) < 5 {
@@ -466,7 +447,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.MRC030Join(stub, mrc030id, Voter, Answer, voteCreatorSign, sign, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc030get":
 		if len(args) < 1 {
@@ -474,7 +454,7 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 		mrc030id := args[0]
 
-		if _, err = metacoin.GetMRC030(stub, mrc030id); err != nil {
+		if _, err = metacoin.Mrc030get(stub, mrc030id); err != nil {
 			return shim.Error(err.Error())
 		}
 
@@ -497,14 +477,13 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.MRC030Finish(stub, mrc030id, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc031get":
 		if len(args) < 1 {
 			return shim.Error("1000,MRC031 operation must include four arguments : mrc031id")
 		}
 		mrc031id := args[0]
-		if _, err = metacoin.GetMRC031(stub, mrc031id); err != nil {
+		if _, err = metacoin.Mrc031get(stub, mrc031id); err != nil {
 			return shim.Error(err.Error())
 		}
 
@@ -544,7 +523,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc100Payment(stub, to, TokenID, tag, userlist, gameid, gamememo, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc100Reward":
 		if len(args) < 7 {
@@ -560,7 +538,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc100Reward(stub, from, TokenID, userlist, gameid, gamememo, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc100Log":
 		if len(args) < 6 {
@@ -575,7 +552,7 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if value, err = metacoin.Mrc100Log(stub, mrc100Key, TokenID, logger, log, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
+		return shim.Success([]byte(value))
 
 	case "mrc100get":
 		if len(args) < 1 {
@@ -621,7 +598,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc400Create(stub, owner, name, url, imageurl, allowtoken, itemurl, itemimageurl, category, description, data, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc400update":
 		if len(args) < 12 {
@@ -642,7 +618,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc400Update(stub, mrc400id, name, url, imageurl, allowtoken, itemurl, itemimageurl, category, description, data, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401get":
 		if len(args) < 1 {
@@ -668,7 +643,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Create(stub, mrc400id, itemData, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401update":
 		if len(args) < 4 {
@@ -682,7 +656,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Update(stub, mrc400id, itemData, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401transfer":
 		if len(args) < 5 {
@@ -697,7 +670,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Transfer(stub, mrc401id, fromAddr, toAddr, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401sell":
 		if len(args) < 5 {
@@ -712,7 +684,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Sell(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401unsell":
 		if len(args) < 5 {
@@ -727,7 +698,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401UnSell(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401buy":
 		if len(args) < 4 {
@@ -741,7 +711,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Buy(stub, buyer, mrc401id, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401melt":
 		if len(args) < 3 {
@@ -754,7 +723,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Melt(stub, mrc401id, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401auction":
 		if len(args) < 5 {
@@ -769,7 +737,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401Auction(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401unauction":
 		if len(args) < 5 {
@@ -784,7 +751,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401UnAuction(stub, seller, mrc400id, itemData, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401bid":
 		if len(args) < 6 {
@@ -799,7 +765,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401AuctionBid(stub, buyer, mrc401id, amount, token, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc401auctionfinish":
 		if len(args) < 1 {
@@ -810,7 +775,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc401AuctionFinish(stub, mrc401id); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	/* MRC410 - coupon/ticket */
 	case "mrc410create":
@@ -833,8 +797,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error(err.Error())
 		}
 
-		break
-
 	/* MRC800 - point system */
 	case "mrc800create":
 		if len(args) < 8 {
@@ -852,7 +814,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc800Create(stub, owner, name, url, imageurl, transferable, description, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc800update":
 		if len(args) < 8 {
@@ -870,7 +831,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc800Update(stub, mrc800id, name, url, imageurl, transferable, description, sign, tkey, args); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc800get":
 		if len(args) < 8 {
@@ -897,7 +857,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc800give(stub, mrc800id, toAddr, amount, memo, signature, tkey); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc800take":
 		if len(args) < 1 {
@@ -913,7 +872,6 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc800take(stub, mrc800id, fromAddr, amount, memo, signature, tkey); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
 
 	case "mrc800transfer":
 		if len(args) < 7 {
@@ -930,7 +888,78 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		if err = metacoin.Mrc800transfer(stub, fromAddr, toAddr, mrc800id, amount, memo, signature, tkey); err != nil {
 			return shim.Error(err.Error())
 		}
-		break
+
+	case "mrc402create":
+		if err = metacoin.Mrc402Create(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402get":
+		if len(args) < 1 {
+			return shim.Error("1000,mrc402get operation must include four arguments : MRC402ID")
+		}
+		if _, bytes, err = metacoin.Mrc402get(stub, args[0]); err != nil {
+			return shim.Error(err.Error())
+		}
+		return shim.Success(bytes)
+
+	case "mrc402update":
+		if err = metacoin.Mrc402Update(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402transfer":
+		if err = metacoin.Mrc402Transfer(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402mint":
+		if err = metacoin.Mrc402Mint(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402burn":
+		if err = metacoin.Mrc402Burn(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402melt":
+		if err = metacoin.Mrc402Melt(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402sell":
+		if err = metacoin.Mrc402Sell(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402unsell":
+		if err = metacoin.Mrc402UnSell(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402buy":
+		if err = metacoin.Mrc402Buy(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402auction":
+		if err = metacoin.Mrc402Auction(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc402unauction":
+		if err = metacoin.Mrc402UnAuction(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+	case "mrc402bid":
+		if err = metacoin.Mrc402AuctionBid(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+	case "mrc402auctionfinish":
+		if err = metacoin.Mrc402AuctionFinish(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
 
 	default:
 		return shim.Error(fmt.Sprintf("Unsupported operation [%s]", function))

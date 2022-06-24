@@ -77,8 +77,6 @@ func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gam
 	}
 
 	if err = json.Unmarshal([]byte(userlist), &playerList); err != nil {
-		println(userlist)
-		println(err.Error())
 		return errors.New("4209,Invalid UserLIst data")
 	}
 	if len(playerList) < 0 {

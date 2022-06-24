@@ -209,18 +209,18 @@ func Mrc800give(stub shim.ChaincodeStubInterface, mrc800id, toAddr, amount, memo
 		return err
 	}
 
-	if toAddrWallet.Mrc800 == nil {
-		toAddrWallet.Mrc800 = make(map[string]string, 0)
+	if toAddrWallet.MRC800 == nil {
+		toAddrWallet.MRC800 = make(map[string]string, 0)
 	}
 	if addAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, exists := toAddrWallet.Mrc800[mrc800id]; exists != false {
-		toAddrWallet.Mrc800[mrc800id] = addAmount.String()
+	if _, exists := toAddrWallet.MRC800[mrc800id]; exists != false {
+		toAddrWallet.MRC800[mrc800id] = addAmount.String()
 	} else {
-		currentAmount, _ = decimal.NewFromString(toAddrWallet.Mrc800[mrc800id])
-		toAddrWallet.Mrc800[mrc800id] = currentAmount.Add(addAmount).String()
+		currentAmount, _ = decimal.NewFromString(toAddrWallet.MRC800[mrc800id])
+		toAddrWallet.MRC800[mrc800id] = currentAmount.Add(addAmount).String()
 	}
 	err = SetAddressInfo(stub, toAddr, toAddrWallet, "receive_mrc800give", []string{mrc800Token.Owner, toAddr, amount, mrc800id, signature, "0", "", memo, tkey})
 	return err
@@ -253,22 +253,22 @@ func Mrc800take(stub shim.ChaincodeStubInterface, mrc800id, fromAddr, amount, me
 		return err
 	}
 
-	if fromAddrWallet.Mrc800 == nil {
-		fromAddrWallet.Mrc800 = make(map[string]string, 0)
+	if fromAddrWallet.MRC800 == nil {
+		fromAddrWallet.MRC800 = make(map[string]string, 0)
 	}
 	if subAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, exists := fromAddrWallet.Mrc800[mrc800id]; exists != false {
+	if _, exists := fromAddrWallet.MRC800[mrc800id]; exists != false {
 		return errors.New("5000,Not enough balance")
 	}
-	currentAmount, _ = decimal.NewFromString(fromAddrWallet.Mrc800[mrc800id])
+	currentAmount, _ = decimal.NewFromString(fromAddrWallet.MRC800[mrc800id])
 	if currentAmount.Cmp(subAmount) < 0 {
 		return errors.New("5000,Not enough balance")
 	}
 
-	fromAddrWallet.Mrc800[mrc800id] = currentAmount.Sub(subAmount).String()
+	fromAddrWallet.MRC800[mrc800id] = currentAmount.Sub(subAmount).String()
 	err = SetAddressInfo(stub, fromAddr, fromAddrWallet, "transfer_mrc800take", []string{fromAddr, mrc800Token.Owner, amount, mrc800id, signature, "0", "", memo, tkey})
 	return err
 }
@@ -300,22 +300,22 @@ func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id
 		return err
 	}
 
-	if fromAddrWallet.Mrc800 == nil {
-		fromAddrWallet.Mrc800 = make(map[string]string, 0)
+	if fromAddrWallet.MRC800 == nil {
+		fromAddrWallet.MRC800 = make(map[string]string, 0)
 	}
 	if transferAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, exists := fromAddrWallet.Mrc800[mrc800id]; exists != false {
+	if _, exists := fromAddrWallet.MRC800[mrc800id]; exists != false {
 		return errors.New("5000,Not enough balance")
 	}
-	currentAmount, _ = decimal.NewFromString(fromAddrWallet.Mrc800[mrc800id])
+	currentAmount, _ = decimal.NewFromString(fromAddrWallet.MRC800[mrc800id])
 	if currentAmount.Cmp(transferAmount) < 0 {
 		return errors.New("5000,Not enough balance")
 	}
 
-	fromAddrWallet.Mrc800[mrc800id] = currentAmount.Sub(transferAmount).String()
+	fromAddrWallet.MRC800[mrc800id] = currentAmount.Sub(transferAmount).String()
 	if err = SetAddressInfo(stub, fromAddr, fromAddrWallet, "transfer_mrc800", []string{fromAddr, toAddr, amount, mrc800id, signature, "0", "", memo, tkey}); err != nil {
 		return err
 	}
@@ -324,11 +324,11 @@ func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id
 		return err
 	}
 
-	if _, exists := toAddrWallet.Mrc800[mrc800id]; exists != false {
-		toAddrWallet.Mrc800[mrc800id] = transferAmount.String()
+	if _, exists := toAddrWallet.MRC800[mrc800id]; exists != false {
+		toAddrWallet.MRC800[mrc800id] = transferAmount.String()
 	} else {
-		currentAmount, _ = decimal.NewFromString(toAddrWallet.Mrc800[mrc800id])
-		toAddrWallet.Mrc800[mrc800id] = currentAmount.Add(transferAmount).String()
+		currentAmount, _ = decimal.NewFromString(toAddrWallet.MRC800[mrc800id])
+		toAddrWallet.MRC800[mrc800id] = currentAmount.Add(transferAmount).String()
 	}
 	err = SetAddressInfo(stub, toAddr, toAddrWallet, "receive_mrc800", []string{fromAddr, toAddr, amount, mrc800id, signature, "0", "", memo, tkey})
 

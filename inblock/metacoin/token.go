@@ -342,12 +342,12 @@ func TokenUpdate(stub shim.ChaincodeStubInterface, TokenID, url, info, image, si
 
 	isUpdate = false
 
-	if len(url) > 0 && tk.URL != url {
+	if tk.URL != url {
 		tk.URL = url
 		isUpdate = true
 	}
 
-	if len(info) > 0 && tk.Information != info {
+	if tk.Information != info {
 		tk.Information = info
 		isUpdate = true
 	}
@@ -389,7 +389,7 @@ func TokenBurning(stub shim.ChaincodeStubInterface, TokenID, amount, signature, 
 		return err
 	}
 
-	if err = SubtractToken(stub, &ownerData, TokenID, amount); err != nil {
+	if err = MRC010Subtract(stub, &ownerData, TokenID, amount); err != nil {
 		return err
 	}
 	if err = SetAddressInfo(stub, tk.Owner, ownerData, "ownerBurning", args); err != nil {
@@ -429,7 +429,7 @@ func TokenIncrease(stub shim.ChaincodeStubInterface, TokenID, amount, signature,
 		return err
 	}
 
-	if err = AddToken(stub, &ownerData, TokenID, amount, 0); err != nil {
+	if err = MRC010Add(stub, &ownerData, TokenID, amount, 0); err != nil {
 		return err
 	}
 	if err = SetAddressInfo(stub, tk.Owner, ownerData, "ownerIncrease", args); err != nil {

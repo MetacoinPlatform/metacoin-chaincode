@@ -8,9 +8,11 @@ version 2.0		2020-11-07
 				tkey => nonce
 				address generate built-in
 
+
 version 2.1		2021-02-14
 
 version 2.2     MRC 400, 401, 402 - NFT
+
 */
 import (
 	"fmt"

@@ -125,7 +125,7 @@ func MRC030Create(stub shim.ChaincodeStubInterface, mrc030id, Creator, Title, De
 			vote.QuestionInfo[index].AnswerCount++
 			vote.QuestionInfo[index].SubAnswerCount = append(vote.QuestionInfo[index].SubAnswerCount, 0)
 			if len(ele2.SubQuery) == 0 {
-				vote.Question[index].Item[idx2].SubItem = make([]mtc.MRC030SubItem, 0, 0)
+				vote.Question[index].Item[idx2].SubItem = make([]mtc.MRC030SubItem, 0)
 				continue
 			}
 			for idx3, ele3 := range ele2.SubItem {
@@ -204,7 +204,7 @@ func MRC030Join(stub shim.ChaincodeStubInterface, mrc030id, Voter, Answer, voteC
 		return errors.New("4922,This vote has already ended")
 	}
 
-	if _, exists := vote.Voter[Voter]; exists != false {
+	if _, exists := vote.Voter[Voter]; exists {
 		return errors.New("6100,MRC031 [" + mrc030id + "] is already voting")
 	}
 
@@ -409,7 +409,9 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 		iReward, _ := strconv.ParseInt(vote.Reward, 10, 64)
 		decRefund = decimal.New(int64(vote.MaxRewardRecipient-len(vote.Voter)), 0).Mul(decimal.New(iReward, 0))
 		if decRefund.IsPositive() {
-			CreatorData, err = GetAddressInfo(stub, vote.Creator)
+			if CreatorData, err = GetAddressInfo(stub, vote.Creator); err != nil {
+				return err
+			}
 			MRC010Add(stub, &CreatorData, strconv.Itoa(vote.RewardToken), decRefund.String(), 0)
 			SetAddressInfo(stub, vote.Creator, CreatorData, "mrc030refund", []string{mrc030id, vote.Creator, decRefund.String(), strconv.Itoa(vote.RewardToken), "", "0", "", "", ""})
 		}
@@ -439,7 +441,7 @@ func Mrc030set(stub shim.ChaincodeStubInterface, MRC030ID string, tk mtc.MRC030,
 
 	tk.JobType = JobType
 	tk.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if dat, err = json.Marshal(args); err == nil {
 			tk.JobArgs = string(dat)
 		}

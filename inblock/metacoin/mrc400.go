@@ -90,7 +90,7 @@ func Mrc400Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, 
 		}
 	}
 
-	if isSuccess == false {
+	if !isSuccess {
 		return errors.New("3005,Data generate error, retry again")
 	}
 
@@ -293,7 +293,7 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 		return errors.New("3002,There must be 100 or fewer create item")
 	}
 	if len(MRC401Job) < 1 {
-		return errors.New("3002,There is no item information.")
+		return errors.New("3002,There is no item information")
 	}
 	createTotal = make(map[string]decimal.Decimal)
 	now = time.Now().Unix()
@@ -302,7 +302,7 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 
 	for index := range MRC401Job {
 
-		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists != false {
+		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401Job[index].ItemID] = 0
@@ -473,13 +473,13 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 		return errors.New("3002,There must be 100 or fewer update item")
 	}
 	if len(MRC401Job) < 1 {
-		return errors.New("3002,There is no item information.")
+		return errors.New("3002,There is no item information")
 	}
 
 	keyCheck = make(map[string]int)
 	logData = make([]string, 0, len(MRC401Job))
 	for index := range MRC401Job {
-		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists != false {
+		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401Job[index].ItemID] = 0
@@ -677,7 +677,7 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 		return errors.New("3002,There must be 100 or fewer sell item")
 	}
 	if len(MRC401SellData) < 1 {
-		return errors.New("3002,There is no item information.")
+		return errors.New("3002,There is no item information")
 	}
 	// get seller info
 	if sellerData, err = GetAddressInfo(stub, seller); err != nil {
@@ -695,7 +695,7 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 	keyCheck = make(map[string]int)
 	now = time.Now().Unix()
 	for index := range MRC401SellData {
-		if _, exists := keyCheck[MRC401SellData[index].ItemID]; exists != false {
+		if _, exists := keyCheck[MRC401SellData[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401SellData[index].ItemID] = 0
@@ -788,7 +788,7 @@ func Mrc401UnSell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, 
 		return errors.New("3002,There must be 100 or fewer unsell item")
 	}
 	if len(MRC401list) < 1 {
-		return errors.New("3002,There is no item information.")
+		return errors.New("3002,There is no item information")
 	}
 
 	// get seller info
@@ -807,7 +807,7 @@ func Mrc401UnSell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, 
 	keyCheck = make(map[string]int)
 	for index := range MRC401list {
 
-		if _, exists := keyCheck[MRC401list[index]]; exists != false {
+		if _, exists := keyCheck[MRC401list[index]]; exists {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is duplicate")
 		}
 		keyCheck[MRC401list[index]] = 0
@@ -1154,7 +1154,7 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 		return errors.New("3002,There must be 100 or fewer sell item")
 	}
 	if len(MRC401AuctionData) < 1 {
-		return errors.New("3002,There is no item information.")
+		return errors.New("3002,There is no item information")
 	}
 	// get seller info
 	if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
@@ -1172,7 +1172,7 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 
 	keyCheck = make(map[string]int)
 	for index := range MRC401AuctionData {
-		if _, exists := keyCheck[MRC401AuctionData[index].ItemID]; exists != false {
+		if _, exists := keyCheck[MRC401AuctionData[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401AuctionData[index].ItemID] = 0
@@ -1234,7 +1234,7 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 
 		auctionStart, _ = decimal.NewFromString(MRC401ItemData.AuctionStartPrice)
 		auctionBuynow, _ = decimal.NewFromString(MRC401ItemData.AuctionBuyNowPrice)
-		if auctionBuynow.IsZero() == false && auctionBuynow.Cmp(auctionStart) < 0 {
+		if !auctionBuynow.IsZero() && auctionBuynow.Cmp(auctionStart) < 0 {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item buynow price is must be greater then auction start price")
 		}
 
@@ -1283,7 +1283,7 @@ func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemDat
 		return errors.New("3002,There must be 100 or fewer unauction item")
 	}
 	if len(MRC401list) < 1 {
-		return errors.New("3002,There is no item information.")
+		return errors.New("3002,There is no item information")
 	}
 	// get seller info
 	if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
@@ -1299,7 +1299,7 @@ func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemDat
 
 	keyCheck = make(map[string]int)
 	for index := range MRC401list {
-		if _, exists := keyCheck[MRC401list[index]]; exists != false {
+		if _, exists := keyCheck[MRC401list[index]]; exists {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is duplicate")
 		}
 		keyCheck[MRC401list[index]] = 0
@@ -1439,14 +1439,14 @@ func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, buyer, mrc401id, amount,
 	}
 
 	// check new bid price
-	if buyNow.IsZero() == false {
+	if !buyNow.IsZero() {
 		if bidAmount.Cmp(buyNow) > 0 {
 			return errors.New("3004,The bid amount must be less than or equal to the purchase buynow price")
 		}
 	}
 
 	// buynow
-	if buyNow.IsZero() == false && bidAmount.Cmp(buyNow) == 0 {
+	if !buyNow.IsZero() && bidAmount.Cmp(buyNow) == 0 {
 		isBuynow = true
 	} else {
 		isBuynow = false
@@ -1569,14 +1569,14 @@ func auctionFinish(stub shim.ChaincodeStubInterface, mrc401id string, MRC401Item
 
 	now = time.Now().Unix()
 
-	if isBuynow == false {
+	if isBuynow {
+		if MRC401ItemData.AuctionBuyNowPrice == "0" || MRC401ItemData.AuctionBuyNowPrice != MRC401ItemData.AuctionCurrentPrice {
+			return errors.New("3004,MRC401 [" + mrc401id + "] is not buynow item.")
+		}
+	} else {
 		// auction not expire ?
 		if MRC401ItemData.AuctionEnd > now {
 			return errors.New("3004,MRC401 [" + mrc401id + "] is under auction.")
-		}
-	} else {
-		if MRC401ItemData.AuctionBuyNowPrice == "0" || MRC401ItemData.AuctionBuyNowPrice != MRC401ItemData.AuctionCurrentPrice {
-			return errors.New("3004,MRC401 [" + mrc401id + "] is not buynow item.")
 		}
 	}
 
@@ -1632,7 +1632,7 @@ func auctionFinish(stub shim.ChaincodeStubInterface, mrc401id string, MRC401Item
 			Amount: feePrice.String(), TokenID: MRC401ItemData.AuctionToken, PayType: "mrc401_recv_fee"})
 
 		// If the project owner is buynow, it has already paid the fee.
-		if MRC400ProjectData.Owner != buyer || isBuynow == false {
+		if MRC400ProjectData.Owner != buyer || !isBuynow {
 			// get Proejct Owner
 			if projectOwnerWallet, err = GetAddressInfo(stub, MRC400ProjectData.Owner); err != nil {
 				return err

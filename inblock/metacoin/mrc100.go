@@ -79,7 +79,7 @@ func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gam
 	if err = json.Unmarshal([]byte(userlist), &playerList); err != nil {
 		return errors.New("4209,Invalid UserLIst data")
 	}
-	if len(playerList) < 0 {
+	if len(playerList) == 0 {
 		return errors.New("2007,Playerlist need more than one")
 	}
 	if len(playerList) > 32 {
@@ -137,7 +137,7 @@ func Mrc100Log(stub shim.ChaincodeStubInterface, key, token, logger, log, signat
 	}
 
 	if tk.Owner != logger {
-		if _, exists := tk.Logger[logger]; exists == false {
+		if _, exists := tk.Logger[logger]; !exists {
 			return "", errors.New("6030,you do not have permission to log this token")
 		}
 	}

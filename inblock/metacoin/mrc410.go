@@ -27,7 +27,7 @@ func setMRC410(stub shim.ChaincodeStubInterface, MRC410ID string, tk mtc.MRC410,
 
 	tk.JobType = JobType
 	tk.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if dat, err = json.Marshal(args); err == nil {
 			tk.JobArgs = string(dat)
 		}
@@ -82,7 +82,7 @@ func SetMRC411(stub shim.ChaincodeStubInterface, MRC411ID string, tk mtc.MRC411,
 
 	tk.JobType = JobType
 	tk.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if dat, err = json.Marshal(args); err == nil {
 			tk.JobArgs = string(dat)
 		}

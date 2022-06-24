@@ -7,3 +7,12 @@ inblock/metacoin/mtc/CVS/*
 inblock/metacoin/util/CVS/*
 build/CVS/*
 build/bin/CVS/*
+code.tar.gz
+connection.json
+make.sh
+metacoin_2.0.0.tgz
+metadata.json
+build/.DS_Store
+inblock/.DS_Store
+inblock/metacoin/.DS_Store
+.DS_Store

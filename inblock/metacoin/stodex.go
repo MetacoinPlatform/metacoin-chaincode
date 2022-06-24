@@ -128,7 +128,7 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 	}
 
 	// collect token balance
-	if err = SubtractToken(stub, &ownerData, strconv.Itoa(tokenSN), TotalAmount.String()); err != nil {
+	if err = MRC010Subtract(stub, &ownerData, strconv.Itoa(tokenSN), TotalAmount.String()); err != nil {
 		return err
 	}
 
@@ -662,10 +662,10 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	var PmwFrom, PmwTo, PmwFromfee, PmwTofee *mtc.MetaWallet
 
 	// addr check
-	if util.IsAddress(fromAddr) {
+	if !util.IsAddress(fromAddr) {
 		return errors.New("3001,Invalid from address")
 	}
-	if util.IsAddress(toAddr) {
+	if !util.IsAddress(toAddr) {
 		return errors.New("3002,Invalid to address")
 	}
 	if fromAddr == toAddr {
@@ -710,7 +710,7 @@ func Exchange(stub shim.ChaincodeStubInterface,
 		PmwFromfee = PmwTo
 		break
 	default:
-		if util.IsAddress(fromFeeAddr) {
+		if !util.IsAddress(fromFeeAddr) {
 			return errors.New("3003,Invalid from fee address")
 		}
 
@@ -732,7 +732,7 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	case fromFeeAddr:
 		PmwTofee = PmwFromfee
 	default:
-		if util.IsAddress(toFeeAddr) {
+		if !util.IsAddress(toFeeAddr) {
 			return errors.New("3004,Invalid to fee address")
 		}
 		if mwTofee, err = GetAddressInfo(stub, toFeeAddr); err != nil {

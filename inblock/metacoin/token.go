@@ -24,6 +24,7 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 	var currNo int
 	var reserveInfo mtc.TokenReserve
 	var OwnerData, reserveAddr mtc.MetaWallet
+	var t, RemainSupply decimal.Decimal
 
 	// unmarshal data.
 	if err = json.Unmarshal([]byte(data), &tk); err != nil {
@@ -51,6 +52,7 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 		return "", errors.New("8100,Hyperledger internal error - " + err.Error())
 	}
 
+	// set Token ID
 	if value == nil {
 		currNo = 0
 	} else {
@@ -89,9 +91,16 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 		return "", err
 	}
 
+	if RemainSupply, err = util.ParsePositive(tk.TotalSupply); err != nil {
+		return "", errors.New("1101,TotalSupply is not positive integer")
+	}
+
 	for _, reserveInfo = range tk.Reserve {
+		if t, err = util.ParsePositive(reserveInfo.Value); err != nil {
+			return "", errors.New("1102,Reserve amount " + reserveInfo.Value + " is not interger")
+		}
 		if reserveAddr, err = GetAddressInfo(stub, reserveInfo.Address); err != nil {
-			return "", errors.New("3000,Token reserve address " + reserveInfo.Address + " not found")
+			return "", errors.New("1102,Token reserve address " + reserveInfo.Address + " not found")
 		}
 		if currNo == 0 {
 			reserveAddr.Balance[0].Balance = reserveInfo.Value
@@ -99,6 +108,10 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 			reserveAddr.Balance = append(reserveAddr.Balance, mtc.BalanceInfo{Balance: reserveInfo.Value, Token: currNo, UnlockDate: reserveInfo.UnlockDate})
 		}
 
+		RemainSupply := RemainSupply.Sub(t)
+		if RemainSupply.IsNegative() {
+			return "", errors.New("1103,The reserve amount is greater than totalsupply.")
+		}
 		if err = SetAddressInfo(stub, reserveInfo.Address, reserveAddr, "token_reserve", []string{tk.Owner, reserveInfo.Address, reserveInfo.Value, strconv.Itoa(currNo)}); err != nil {
 			return "", err
 		}
@@ -130,6 +143,7 @@ func TokenSetBase(stub shim.ChaincodeStubInterface, TokenID, BaseTokenSN, signat
 	if _, sn, err = GetToken(stub, BaseTokenSN); err != nil {
 		return err
 	}
+
 	if tk.BaseToken == sn {
 		return errors.New("4210,Basetoken same as the existing value")
 	}
@@ -328,12 +342,12 @@ func TokenUpdate(stub shim.ChaincodeStubInterface, TokenID, url, info, image, si
 
 	isUpdate = false
 
-	if len(url) > 0 && tk.URL != url {
+	if tk.URL != url {
 		tk.URL = url
 		isUpdate = true
 	}
 
-	if len(info) > 0 && tk.Information != info {
+	if tk.Information != info {
 		tk.Information = info
 		isUpdate = true
 	}
@@ -375,7 +389,7 @@ func TokenBurning(stub shim.ChaincodeStubInterface, TokenID, amount, signature, 
 		return err
 	}
 
-	if err = SubtractToken(stub, &ownerData, TokenID, amount); err != nil {
+	if err = MRC010Subtract(stub, &ownerData, TokenID, amount); err != nil {
 		return err
 	}
 	if err = SetAddressInfo(stub, tk.Owner, ownerData, "ownerBurning", args); err != nil {
@@ -415,7 +429,7 @@ func TokenIncrease(stub shim.ChaincodeStubInterface, TokenID, amount, signature,
 		return err
 	}
 
-	if err = AddToken(stub, &ownerData, TokenID, amount, 0); err != nil {
+	if err = MRC010Add(stub, &ownerData, TokenID, amount, 0); err != nil {
 		return err
 	}
 	if err = SetAddressInfo(stub, tk.Owner, ownerData, "ownerIncrease", args); err != nil {

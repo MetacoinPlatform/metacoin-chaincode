@@ -87,7 +87,7 @@ func MRC030Create(stub shim.ChaincodeStubInterface, mrc030id, Creator, Title, De
 
 	if decReward.IsPositive() {
 		totReward = decReward.Mul(decMaxRewardRecipient)
-		if err = SubtractToken(stub, &CreatorData, RewardToken, totReward.String()); err != nil {
+		if err = MRC010Subtract(stub, &CreatorData, RewardToken, totReward.String()); err != nil {
 			return err
 		}
 	} else {
@@ -111,7 +111,7 @@ func MRC030Create(stub shim.ChaincodeStubInterface, mrc030id, Creator, Title, De
 			break
 		}
 		vote.Question = append(vote.Question, ele)
-		vote.QuestionInfo = append(vote.QuestionInfo, mtc.MRC030QuestionInfo{0, []int{}})
+		vote.QuestionInfo = append(vote.QuestionInfo, mtc.MRC030QuestionInfo{AnswerCount: 0, SubAnswerCount: []int{}})
 		vote.QuestionCount++
 		for idx2, ele2 := range ele.Item {
 			if len(ele2.Answer) == 0 && len(ele2.URL) == 0 {
@@ -172,7 +172,7 @@ func MRC030Create(stub shim.ChaincodeStubInterface, mrc030id, Creator, Title, De
 		vote.IsNeedSign = 0
 	}
 
-	if err = setMRC030(stub, mrc030id, vote, "mrc030", []string{Creator, mrc030id, Title, StartDate, EndDate, Reward, RewardToken, MaxRewardRecipient, RewardType}); err != nil {
+	if err = Mrc030set(stub, mrc030id, vote, "mrc030", []string{Creator, mrc030id, Title, StartDate, EndDate, Reward, RewardToken, MaxRewardRecipient, RewardType}); err != nil {
 		return err
 	}
 	return nil
@@ -191,7 +191,7 @@ func MRC030Join(stub shim.ChaincodeStubInterface, mrc030id, Voter, Answer, voteC
 
 	nowTime := time.Now().Unix()
 
-	if vote, err = GetMRC030(stub, mrc030id); err != nil {
+	if vote, err = Mrc030get(stub, mrc030id); err != nil {
 		return err
 	}
 	if vote.StartDate > nowTime {
@@ -272,7 +272,7 @@ func MRC030Join(stub shim.ChaincodeStubInterface, mrc030id, Voter, Answer, voteC
 
 	if vote.RewardType == 10 {
 		if vote.Reward != "0" {
-			if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
+			if err = MRC010Add(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 				return err
 			}
 			if err = SetAddressInfo(stub, Voter, voterData, "mrc030reward", []string{mrc030id, Voter, vote.Reward, strconv.Itoa(vote.RewardToken), signature, "0", "", "", ""}); err != nil {
@@ -315,7 +315,7 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 	var decRefund decimal.Decimal
 	var i int
 	var key string
-	if vote, err = GetMRC030(stub, mrc030id); err != nil {
+	if vote, err = Mrc030get(stub, mrc030id); err != nil {
 		return err
 	}
 	if vote.IsFinish != 0 {
@@ -337,7 +337,7 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 				if voterData, err = GetAddressInfo(stub, key); err != nil {
 					continue
 				}
-				if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
+				if err = MRC010Add(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 					continue
 				}
 				if err = SetAddressInfo(stub, key, voterData, "mrc030reward", []string{mrc030id, key, vote.Reward, strconv.Itoa(vote.RewardToken), "", "0", "", "", ""}); err != nil {
@@ -362,7 +362,7 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 				if voterData, err = GetAddressInfo(stub, key); err != nil {
 					continue
 				}
-				if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
+				if err = MRC010Add(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 					continue
 				}
 				if err = SetAddressInfo(stub, key, voterData, "mrc030reward", []string{mrc030id, key, vote.Reward, strconv.Itoa(vote.RewardToken), "", "0", "", "", ""}); err != nil {
@@ -386,7 +386,7 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 				if voterData, err = GetAddressInfo(stub, key); err != nil {
 					continue
 				}
-				if err = AddToken(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
+				if err = MRC010Add(stub, &voterData, strconv.Itoa(vote.RewardToken), vote.Reward, 0); err != nil {
 					continue
 				}
 				if err = SetAddressInfo(stub, key, voterData, "mrc030reward", []string{mrc030id, key, vote.Reward, strconv.Itoa(vote.RewardToken), "", "0", "", "", ""}); err != nil {
@@ -410,7 +410,7 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 		decRefund = decimal.New(int64(vote.MaxRewardRecipient-len(vote.Voter)), 0).Mul(decimal.New(iReward, 0))
 		if decRefund.IsPositive() {
 			CreatorData, err = GetAddressInfo(stub, vote.Creator)
-			AddToken(stub, &CreatorData, strconv.Itoa(vote.RewardToken), decRefund.String(), 0)
+			MRC010Add(stub, &CreatorData, strconv.Itoa(vote.RewardToken), decRefund.String(), 0)
 			SetAddressInfo(stub, vote.Creator, CreatorData, "mrc030refund", []string{mrc030id, vote.Creator, decRefund.String(), strconv.Itoa(vote.RewardToken), "", "0", "", "", ""})
 		}
 	}
@@ -426,8 +426,8 @@ func MRC030Finish(stub shim.ChaincodeStubInterface, mrc030id string, args []stri
 	return nil
 }
 
-// setMRC030 : save setMRC030
-func setMRC030(stub shim.ChaincodeStubInterface, MRC030ID string, tk mtc.MRC030, JobType string, args []string) error {
+// Mrc030set : save Mrc030set
+func Mrc030set(stub shim.ChaincodeStubInterface, MRC030ID string, tk mtc.MRC030, JobType string, args []string) error {
 	var dat []byte
 	var err error
 	if len(MRC030ID) != 40 {
@@ -456,8 +456,8 @@ func setMRC030(stub shim.ChaincodeStubInterface, MRC030ID string, tk mtc.MRC030,
 	return nil
 }
 
-// GetMRC030 : get MRC030
-func GetMRC030(stub shim.ChaincodeStubInterface, MRC030ID string) (mtc.MRC030, error) {
+// Mrc030get : get MRC030
+func Mrc030get(stub shim.ChaincodeStubInterface, MRC030ID string) (mtc.MRC030, error) {
 	var data []byte
 	var tk mtc.MRC030
 	var err error
@@ -481,8 +481,8 @@ func GetMRC030(stub shim.ChaincodeStubInterface, MRC030ID string) (mtc.MRC030, e
 	return tk, nil
 }
 
-// GetMRC031 : get MRC031
-func GetMRC031(stub shim.ChaincodeStubInterface, MRC031ID string) (mtc.MRC031, error) {
+// Mrc031get : get MRC031
+func Mrc031get(stub shim.ChaincodeStubInterface, MRC031ID string) (mtc.MRC031, error) {
 	var data []byte
 	var tk mtc.MRC031
 	var err error

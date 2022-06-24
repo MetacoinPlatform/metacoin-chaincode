@@ -1,12 +1,9 @@
-CVS
 CVS/*
 .cvsignore
-inblock/CVS
+Metacoin.exe
 inblock/CVS/*
-inblock/metacoin/CVS
 inblock/metacoin/CVS/*
-inblock/metacoin/mtc/CVS
 inblock/metacoin/mtc/CVS/*
-inblock/metacoin/util/CVS
 inblock/metacoin/util/CVS/*
-MetaCoin.exe
+build/CVS/*
+build/bin/CVS/*

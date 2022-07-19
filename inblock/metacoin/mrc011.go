@@ -27,7 +27,7 @@ func Mrc011set(stub shim.ChaincodeStubInterface, MRC011ID string, tk mtc.MRC011,
 
 	tk.JobType = JobType
 	tk.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if dat, err = json.Marshal(args); err == nil {
 			tk.JobArgs = string(dat)
 		}
@@ -82,7 +82,7 @@ func SetMRC012(stub shim.ChaincodeStubInterface, MRC012ID string, tk mtc.MRC012,
 
 	tk.JobType = JobType
 	tk.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if dat, err = json.Marshal(args); err == nil {
 			tk.JobArgs = string(dat)
 		}

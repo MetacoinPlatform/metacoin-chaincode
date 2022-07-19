@@ -53,7 +53,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 		}
 	}
 
-	if isSuccess == false {
+	if !isSuccess {
 		return "", errors.New("3005,Address generate error")
 	}
 
@@ -63,7 +63,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 
 	block, _ = pem.Decode([]byte(mcData.Password))
 	if block == nil {
-		if strings.Index(publicKey, "\n") == -1 {
+		if !strings.Contains(publicKey, "\n") {
 			var dt = len(publicKey) - 24
 			if dt < 26 {
 				return "", errors.New("3103,Public key decode error " + publicKey)
@@ -254,9 +254,7 @@ func MoveToken(stub shim.ChaincodeStubInterface, fromwallet *mtc.MetaWallet, tow
 	var toIDX int
 	var balanceTemp []mtc.BalanceInfo
 	var iTokenSN int
-	var nowTime int64
-
-	nowTime = time.Now().Unix()
+	var nowTime = time.Now().Unix()
 	if iUnlockDate < nowTime {
 		iUnlockDate = 0
 	}
@@ -432,7 +430,7 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 		if !util.IsAddress(ele.Address) {
 			return errors.New("3002,Invalid to address")
 		}
-		if _, exists := toList[ele.Address]; exists != false {
+		if _, exists := toList[ele.Address]; exists {
 			return errors.New("6100, [" + ele.Address + "] already exists on the transfer list.")
 		}
 		toList[ele.Address] = 1
@@ -557,7 +555,7 @@ func SetAddressInfo(stub shim.ChaincodeStubInterface, key string, mcData mtc.Met
 
 	mcData.JobType = JobType
 	mcData.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if argdat, err = json.Marshal(args); err == nil {
 			mcData.JobArgs = string(argdat)
 		}
@@ -581,7 +579,7 @@ func SetTokenInfo(stub shim.ChaincodeStubInterface, key string, tk mtc.Token, Jo
 
 	tk.JobType = JobType
 	tk.JobDate = time.Now().Unix()
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if dat, err = json.Marshal(args); err == nil {
 			tk.JobArgs = string(dat)
 		}
@@ -635,7 +633,7 @@ func SignCheck(stub shim.ChaincodeStubInterface, Address, Data, Sign string) err
 	}
 
 	r, _ := regexp.Compile("^[a-zA-Z0-9]{1,20}$")
-	if r.MatchString(Data) == false {
+	if !r.MatchString(Data) {
 		return errors.New("9002,SignCheck data only accepts a-z, A-Z, 0-9")
 	}
 

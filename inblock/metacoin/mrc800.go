@@ -80,7 +80,7 @@ func Mrc800Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, 
 		}
 	}
 
-	if isSuccess == false {
+	if !isSuccess {
 		return errors.New("3005,Data generate error, retry again")
 	}
 
@@ -216,7 +216,7 @@ func Mrc800give(stub shim.ChaincodeStubInterface, mrc800id, toAddr, amount, memo
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, exists := toAddrWallet.MRC800[mrc800id]; exists != false {
+	if _, exists := toAddrWallet.MRC800[mrc800id]; exists {
 		toAddrWallet.MRC800[mrc800id] = addAmount.String()
 	} else {
 		currentAmount, _ = decimal.NewFromString(toAddrWallet.MRC800[mrc800id])
@@ -260,7 +260,7 @@ func Mrc800take(stub shim.ChaincodeStubInterface, mrc800id, fromAddr, amount, me
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, exists := fromAddrWallet.MRC800[mrc800id]; exists != false {
+	if _, exists := fromAddrWallet.MRC800[mrc800id]; exists {
 		return errors.New("5000,Not enough balance")
 	}
 	currentAmount, _ = decimal.NewFromString(fromAddrWallet.MRC800[mrc800id])
@@ -307,7 +307,7 @@ func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, exists := fromAddrWallet.MRC800[mrc800id]; exists != false {
+	if _, exists := fromAddrWallet.MRC800[mrc800id]; exists {
 		return errors.New("5000,Not enough balance")
 	}
 	currentAmount, _ = decimal.NewFromString(fromAddrWallet.MRC800[mrc800id])
@@ -324,7 +324,7 @@ func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id
 		return err
 	}
 
-	if _, exists := toAddrWallet.MRC800[mrc800id]; exists != false {
+	if _, exists := toAddrWallet.MRC800[mrc800id]; exists {
 		toAddrWallet.MRC800[mrc800id] = transferAmount.String()
 	} else {
 		currentAmount, _ = decimal.NewFromString(toAddrWallet.MRC800[mrc800id])

@@ -94,7 +94,7 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 		return errors.New("6501,Base token is not allow exchange to target token")
 	}
 
-	if _, exists := BaseTokenData.TargetToken[TargetTokenSN]; exists == false {
+	if _, exists := BaseTokenData.TargetToken[TargetTokenSN]; !exists {
 		return errors.New("6501,Base token is not allow exchange to target token")
 	}
 
@@ -137,7 +137,7 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 	}
 	CurrentPending, exists = ownerData.Pending[tokenSN]
 	if exists {
-		tempCoin, err = decimal.NewFromString(CurrentPending)
+		tempCoin, _ = decimal.NewFromString(CurrentPending)
 		ownerData.Pending[tokenSN] = tempCoin.Add(TotalAmount).String()
 	} else {
 		ownerData.Pending[tokenSN] = TotalAmount.String()
@@ -160,7 +160,7 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 	item.Type = "MRC040"
 	item.JobDate = time.Now().Unix()
 	item.JobType = "stodexRegister"
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if data, err = json.Marshal(args); err == nil {
 			item.JobArgs = string(data)
 		}
@@ -268,7 +268,7 @@ func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, s
 	}
 
 	// remainAmount > 0 ?
-	if isBalanceFound == false {
+	if !isBalanceFound {
 		balance.Balance = TotalAmount.String()
 		balance.Token = tokenSN
 		balance.UnlockDate = 0
@@ -296,7 +296,7 @@ func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, s
 	item.Type = "MRC040"
 	item.JobDate = time.Now().Unix()
 	item.JobType = "stodexUnRegister"
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if data, err = json.Marshal(args); err == nil {
 			item.JobArgs = string(data)
 		}
@@ -327,11 +327,8 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	var requesterSide string
 
 	now = time.Now().Unix()
-	if data, err = stub.GetState(exchangePK); err != nil {
+	if _, err = stub.GetState(exchangePK); err != nil {
 		return errors.New("8100,Hyperledger internal error - " + err.Error())
-	}
-	if data != nil {
-
 	}
 	if strings.Index(exchangeItemPK, "MRC040_") != 0 {
 		return errors.New("6103,invalid MRC040 data address")
@@ -380,7 +377,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 		return errors.New("6501,Base token is not allow exchange to target token")
 	}
 
-	if _, exists := BaseTokenData.TargetToken[item.TargetToken]; exists == false {
+	if _, exists := BaseTokenData.TargetToken[item.TargetToken]; !exists {
 		targs = nil
 		targs = append(targs, item.Owner, exchangeItemPK, "Base token is not allow exchange to target token")
 		StodexUnRegister(stub, item.Owner, exchangeItemPK, "", "", targs)
@@ -508,7 +505,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 		ownerData.Balance[index].Balance = tAmount.Add(ownerPlusAmount).String()
 		isPlusProcess = true
 	}
-	if isPlusProcess == false {
+	if !isPlusProcess {
 		balance.Balance = ownerPlusAmount.String()
 		balance.Token = ownerPlusToken
 		balance.UnlockDate = 0
@@ -521,11 +518,11 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	}
 
 	tAmount = tAmount.Sub(ownerMinusAmount)
-	if tAmount.IsNegative() == true {
+	if tAmount.IsNegative() {
 		return errors.New("1300," + fmt.Sprintf("Owner pending balance remain error - remain %s, need %s", tAmount.Add(ownerMinusAmount).String(), ownerMinusAmount.String()))
 	}
 
-	if tAmount.IsZero() == true {
+	if tAmount.IsZero() {
 		delete(ownerData.Pending, ownerMinusToken)
 	} else {
 		ownerData.Pending[ownerMinusToken] = tAmount.String()
@@ -565,7 +562,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 		isMunusProcess = true
 	}
 
-	if isMunusProcess == false {
+	if !isMunusProcess {
 		balance.Balance = ownerMinusAmount.String()
 		balance.Token = ownerMinusToken
 		balance.UnlockDate = 0
@@ -581,7 +578,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	targs = append(targs, strconv.Itoa(item.TargetToken))
 	targs = append(targs, item.Price)
 	targs = append(targs, qtt)
-	targs = append(targs, strconv.FormatInt(now, 64))
+	targs = append(targs, strconv.FormatInt(now, 36))
 	targs = append(targs, exchangeItemPK)
 	targs = append(targs, exchangePK)
 	if err = SetAddressInfo(stub, requester, requesterData, "stodexExchangeRequest", targs); err != nil {
@@ -608,7 +605,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	exchangeResult.Type = "MRC040_RESULT"
 	exchangeResult.JobDate = time.Now().Unix()
 	exchangeResult.JobType = "stodexExchange"
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if data, err = json.Marshal(args); err == nil {
 			exchangeResult.JobArgs = string(data)
 		}
@@ -623,7 +620,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 		return errors.New("6000,Exchange result item is already exists")
 	}
 
-	data, err = json.Marshal(exchangeResult)
+	data, _ = json.Marshal(exchangeResult)
 	if err = stub.PutState(exchangePK, data); err != nil {
 		return err
 	}
@@ -637,7 +634,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	item.Type = "MRC040"
 	item.JobDate = time.Now().Unix()
 	item.JobType = "stodexExchange"
-	if args != nil && len(args) > 0 {
+	if len(args) > 0 {
 		if data, err = json.Marshal(args); err == nil {
 			item.JobArgs = string(data)
 		}
@@ -701,14 +698,10 @@ func Exchange(stub shim.ChaincodeStubInterface,
 
 	switch fromFeeAddr {
 	case "":
-		PmwFromfee = nil
-		break
 	case fromAddr:
 		PmwFromfee = nil
-		break
 	case toAddr:
 		PmwFromfee = PmwTo
-		break
 	default:
 		if !util.IsAddress(fromFeeAddr) {
 			return errors.New("3003,Invalid from fee address")
@@ -722,11 +715,8 @@ func Exchange(stub shim.ChaincodeStubInterface,
 
 	switch toFeeAddr {
 	case "":
-		PmwTofee = nil
-		break
 	case toAddr:
 		PmwTofee = nil
-		break
 	case fromAddr:
 		PmwTofee = PmwFrom
 	case fromFeeAddr:

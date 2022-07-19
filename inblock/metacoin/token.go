@@ -110,7 +110,7 @@ func TokenRegister(stub shim.ChaincodeStubInterface, data, signature, tkey strin
 
 		RemainSupply := RemainSupply.Sub(t)
 		if RemainSupply.IsNegative() {
-			return "", errors.New("1103,The reserve amount is greater than totalsupply.")
+			return "", errors.New("1103,The reserve amount is greater than totalsupply")
 		}
 		if err = SetAddressInfo(stub, reserveInfo.Address, reserveAddr, "token_reserve", []string{tk.Owner, reserveInfo.Address, reserveInfo.Value, strconv.Itoa(currNo)}); err != nil {
 			return "", err
@@ -148,7 +148,7 @@ func TokenSetBase(stub shim.ChaincodeStubInterface, TokenID, BaseTokenSN, signat
 		return errors.New("4210,Basetoken same as the existing value")
 	}
 
-	if _, exists := tk.TargetToken[sn]; exists == true {
+	if _, exists := tk.TargetToken[sn]; exists {
 		return errors.New("4201,Base token are in the target token list")
 	}
 
@@ -205,7 +205,7 @@ func TokenAddTarget(stub shim.ChaincodeStubInterface, TokenID, TargetTokenSN, si
 	if tk.TargetToken == nil {
 		tk.TargetToken = make(map[int]int64)
 	} else {
-		if _, exists := tk.TargetToken[sn]; exists == true {
+		if _, exists := tk.TargetToken[sn]; exists {
 			return errors.New("4205,Target token are in the target token list")
 		}
 	}
@@ -229,7 +229,7 @@ func TokenRemoveTarget(stub shim.ChaincodeStubInterface, TokenID, TargetTokenSN,
 	if tk.TargetToken == nil {
 		return errors.New("4202,Could not find target token in the target token list")
 	}
-	if _, exists := tk.TargetToken[sn]; exists == false {
+	if _, exists := tk.TargetToken[sn]; !exists {
 		return errors.New("4202,Could not find target token in the target token list")
 	}
 
@@ -278,7 +278,7 @@ func TokenAddLogger(stub shim.ChaincodeStubInterface, TokenID, logger, signature
 	if tk.Logger == nil {
 		tk.Logger = make(map[string]int64)
 	} else {
-		if _, exists := tk.Logger[logger]; exists == true {
+		if _, exists := tk.Logger[logger]; exists {
 			return errors.New("4205,Target token are in the target token list")
 		}
 	}
@@ -300,7 +300,7 @@ func TokenRemoveLogger(stub shim.ChaincodeStubInterface, TokenID, logger, signat
 	if tk.Logger == nil {
 		return errors.New("4202,Could not find logger in the logger list")
 	}
-	if _, exists := tk.Logger[logger]; exists == false {
+	if _, exists := tk.Logger[logger]; !exists {
 		return errors.New("4202,Could not find logger in the logger list")
 	}
 

@@ -12,11 +12,37 @@ import (
 	"inblock/metacoin/mtc"
 )
 
+// TMRC100Reward - game reward user list
+type TMRC100Reward struct {
+	Address string `json:"address"`
+	Amount  string `json:"amount"`
+	Tag     string `json:"tag"`
+	Memo    string `json:"memo"`
+}
+
+// TMRC100Payment - game payment user list
+type TMRC100Payment struct {
+	Address   string `json:"address"`
+	Amount    string `json:"amount"`
+	Memo      string `json:"memo"`
+	Signature string `json:"signature"`
+	TKey      string `json:"tkey"`
+}
+
+// TMRC100Log - game log
+type TMRC100Log struct {
+	Regdate int64  `json:"regdate"`
+	Token   int    `json:"token"`
+	Logger  string `json:"logger"`
+	JobType string `json:"job_type"`
+	JobArgs string `json:"job_args"`
+}
+
 // Mrc100Payment : Game payment
 func Mrc100Payment(stub shim.ChaincodeStubInterface, to, TokenID, tag, userlist, gameid, gamememo string, args []string) error {
 	var err error
-	var ownerData, playerData mtc.MetaWallet
-	var playerList []mtc.MRC100Payment
+	var ownerData, playerData mtc.TWallet
+	var playerList []TMRC100Payment
 
 	if ownerData, err = GetAddressInfo(stub, to); err != nil {
 		return err
@@ -53,13 +79,13 @@ func Mrc100Payment(stub shim.ChaincodeStubInterface, to, TokenID, tag, userlist,
 			}
 		}
 
-		if err = SetAddressInfo(stub, elements.Address, playerData, "mrc100payment",
+		if err = SetAddressInfo(stub, playerData, "mrc100payment",
 			[]string{elements.Address, to, elements.Amount, TokenID, elements.Signature, "", tag, elements.Memo, elements.TKey}); err != nil {
 			return err
 		}
 	}
 
-	if err = SetAddressInfo(stub, to, ownerData, "mrc100paymentrecv", args); err != nil {
+	if err = SetAddressInfo(stub, ownerData, "mrc100paymentrecv", args); err != nil {
 		return err
 	}
 	return nil
@@ -68,8 +94,8 @@ func Mrc100Payment(stub shim.ChaincodeStubInterface, to, TokenID, tag, userlist,
 // Mrc100Reward : Game reward
 func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gameid, gamememo, signature, tkey string, args []string) error {
 	var err error
-	var ownerData, playerData mtc.MetaWallet
-	var playerList []mtc.MRC100Reward
+	var ownerData, playerData mtc.TWallet
+	var playerList []TMRC100Reward
 	var checkList []string
 
 	if ownerData, err = GetAddressInfo(stub, from); err != nil {
@@ -112,13 +138,13 @@ func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gam
 			}
 		}
 
-		if err = SetAddressInfo(stub, elements.Address, playerData, "mrc030reward",
+		if err = SetAddressInfo(stub, playerData, "mrc030reward",
 			[]string{from, elements.Address, elements.Amount, TokenID, signature, "", elements.Tag, elements.Memo, ""}); err != nil {
 			return err
 		}
 	}
 
-	if err = SetAddressInfo(stub, from, ownerData, "mrc030payment", args); err != nil {
+	if err = SetAddressInfo(stub, ownerData, "mrc030payment", args); err != nil {
 		return err
 	}
 	return nil
@@ -127,12 +153,12 @@ func Mrc100Reward(stub shim.ChaincodeStubInterface, from, TokenID, userlist, gam
 // Mrc100Log Game log
 func Mrc100Log(stub shim.ChaincodeStubInterface, key, token, logger, log, signature, tkey string, args []string) (string, error) {
 	var err error
-	var tk mtc.Token
-	var ownerData mtc.MetaWallet
-	var mrcLog mtc.MRC100Log
+	var tk mtc.TMRC010
+	var ownerData mtc.TWallet
+	var mrcLog TMRC100Log
 	var dat []byte
 
-	if tk, _, err = GetToken(stub, token); err != nil {
+	if tk, _, err = GetMRC010(stub, token); err != nil {
 		return "", err
 	}
 
@@ -155,7 +181,7 @@ func Mrc100Log(stub shim.ChaincodeStubInterface, key, token, logger, log, signat
 		return "", err
 	}
 
-	mrcLog = mtc.MRC100Log{Regdate: time.Now().Unix(),
+	mrcLog = TMRC100Log{Regdate: time.Now().Unix(),
 		Token:   tk.Token,
 		Logger:  logger,
 		JobType: "MRC100LOG",

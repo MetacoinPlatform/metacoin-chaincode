@@ -13,8 +13,37 @@ import (
 	"inblock/metacoin/util"
 )
 
+// TMRC410 : Coupon/Ticket base
+type TMRC410 struct {
+	Creator    string `json:"creator"`
+	Name       string `json:"name"`
+	IsTransfer int    `json:"is_transfer"`
+	StartDate  int64  `json:"start_date"`
+	EndDate    int64  `json:"end_date"`
+	Term       int    `json:"term"`
+	Code       string `json:"code"`
+	Data       string `json:"data"`
+	JobType    string `json:"job_type"`
+	JobArgs    string `json:"job_args"`
+	JobDate    int64  `json:"jobdate"`
+}
+
+// TMRC411 : Coupon/Ticket
+type TMRC411 struct {
+	Creator    string `json:"creator"`
+	Owner      string `json:"owner"`
+	Name       string `json:"name"`
+	CreateDate int64  `json:"create_date"`
+	ExpireDate int64  `json:"expire_date"`
+	Code       string `json:"code"`
+	Data       string `json:"data"`
+	JobType    string `json:"job_type"`
+	JobArgs    string `json:"job_args"`
+	JobDate    int64  `json:"jobdate"`
+}
+
 // setMRC410 : save MRC410
-func setMRC410(stub shim.ChaincodeStubInterface, MRC410ID string, tk mtc.MRC410, JobType string, args []string) error {
+func setMRC410(stub shim.ChaincodeStubInterface, MRC410ID string, tk TMRC410, JobType string, args []string) error {
 	var dat []byte
 	var err error
 	if len(MRC410ID) != 40 {
@@ -45,9 +74,9 @@ func setMRC410(stub shim.ChaincodeStubInterface, MRC410ID string, tk mtc.MRC410,
 }
 
 // GetMRC410 : get MRC410
-func GetMRC410(stub shim.ChaincodeStubInterface, MRC410ID string) (mtc.MRC410, error) {
+func GetMRC410(stub shim.ChaincodeStubInterface, MRC410ID string) (TMRC410, error) {
 	var data []byte
-	var tk mtc.MRC410
+	var tk TMRC410
 	var err error
 
 	if len(MRC410ID) != 40 {
@@ -70,7 +99,7 @@ func GetMRC410(stub shim.ChaincodeStubInterface, MRC410ID string) (mtc.MRC410, e
 }
 
 // SetMRC411 : save MRC411
-func SetMRC411(stub shim.ChaincodeStubInterface, MRC411ID string, tk mtc.MRC411, JobType string, args []string) error {
+func SetMRC411(stub shim.ChaincodeStubInterface, MRC411ID string, tk TMRC411, JobType string, args []string) error {
 	var dat []byte
 	var err error
 	if len(MRC411ID) != 40 {
@@ -104,8 +133,8 @@ func MRC410Create(stub shim.ChaincodeStubInterface, creator, name, validitytype,
 	var err error
 	var i int
 	var j int64
-	var mrc410 mtc.MRC410
-	var creatorData mtc.MetaWallet
+	var mrc410 TMRC410
+	var creatorData mtc.TWallet
 
 	if creatorData, err = GetAddressInfo(stub, creator); err != nil {
 		return err

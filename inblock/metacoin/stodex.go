@@ -20,11 +20,47 @@ import (
 // stodex.go
 // =========================================
 
+// TSTODEXItem : MRC040 exchange request
+type TSTODEXItem struct {
+	Owner        string `json:"owner"`
+	Side         string `json:"side"`
+	BaseToken    int    `json:"basetoken"`
+	TargetToken  int    `json:"targettoken"`
+	Price        string `json:"price"`
+	Qtt          string `json:"qtt"`
+	RemainQtt    string `json:"remainqtt"`
+	Regdate      int64  `json:"regdate"`
+	CompleteDate int64  `json:"complete_date"`
+	CancelDate   int64  `json:"cancel_date"`
+	Status       string `json:"status"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
+	Type         string `json:"type"`
+}
+
+// TSTODEXResult : MRC040 exchange result
+type TSTODEXResult struct {
+	SellOwner  string `json:"sell_owner"`
+	BuyOwner   string `json:"buy_owner"`
+	SellItemTX string `json:"from_item_tx"`
+	BuyItemTX  string `json:"to_item_tx"`
+	SellToken  int    `json:"sell_token"`
+	BuyToken   int    `json:"buy_token"`
+	Price      string `json:"price"`
+	Qtt        string `json:"qtt"`
+	Regdate    int64  `json:"regdate"`
+	JobType    string `json:"job_type"`
+	JobArgs    string `json:"job_args"`
+	JobDate    int64  `json:"jobdate"`
+	Type       string `json:"type"`
+}
+
 // Mrc040get - get MRC040 Token
 func Mrc040get(stub shim.ChaincodeStubInterface, mrc040Key string) (string, error) {
 	var dat []byte
 	var err error
-	var mrc040 mtc.ExchangeItem
+	var mrc040 TSTODEXItem
 
 	if strings.Index(mrc040Key, "MRC040_") != 0 {
 		return "", errors.New("6103,invalid MRC040 data address")
@@ -50,13 +86,13 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 	args []string) error {
 	var err error
 	var Price, Qtt, TotalAmount, tempCoin decimal.Decimal
-	var ownerData mtc.MetaWallet
+	var ownerData mtc.TWallet
 	var exists bool
 	var BaseTokenSN, TargetTokenSN int
-	var BaseTokenData, TargetTokenData mtc.Token
+	var BaseTokenData, TargetTokenData mtc.TMRC010
 	var tokenSN int
 	var CurrentPending string
-	var item mtc.ExchangeItem
+	var item TSTODEXItem
 	var data []byte
 
 	if strings.Index(exchangeItemPK, "MRC040_") != 0 {
@@ -81,11 +117,11 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 		return err
 	}
 
-	if BaseTokenData, BaseTokenSN, err = GetToken(stub, BaseToken); err != nil {
+	if BaseTokenData, BaseTokenSN, err = GetMRC010(stub, BaseToken); err != nil {
 		return err
 	}
 
-	if TargetTokenData, TargetTokenSN, err = GetToken(stub, TargetToken); err != nil {
+	if TargetTokenData, TargetTokenSN, err = GetMRC010(stub, TargetToken); err != nil {
 		return err
 	}
 
@@ -143,7 +179,7 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 		ownerData.Pending[tokenSN] = TotalAmount.String()
 	}
 
-	if err = SetAddressInfo(stub, owner, ownerData, "stodexRegister", args); err != nil {
+	if err = SetAddressInfo(stub, ownerData, "stodexRegister", args); err != nil {
 		return err
 	}
 
@@ -182,12 +218,12 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, signature, tkey string, args []string) error {
 	var err error
 	var Price, Qtt, TotalAmount, tempCoin decimal.Decimal
-	var ownerData mtc.MetaWallet
+	var ownerData mtc.TWallet
 	var tokenSN int
-	var balance mtc.BalanceInfo
-	var item mtc.ExchangeItem
+	var balance mtc.TMRC010Balance
+	var item TSTODEXItem
 	var data []byte
-	var TargetTokenData mtc.Token
+	var TargetTokenData mtc.TMRC010
 
 	if strings.Index(exchangeItemPK, "MRC040_") != 0 {
 		return errors.New("6103,invalid MRC040 data address")
@@ -238,7 +274,7 @@ func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, s
 		tokenSN = item.BaseToken
 		Divider, _ := decimal.NewFromString("10")
 
-		if TargetTokenData, _, err = GetToken(stub, strconv.Itoa(item.TargetToken)); err != nil {
+		if TargetTokenData, _, err = GetMRC010(stub, strconv.Itoa(item.TargetToken)); err != nil {
 			return err
 		}
 		TotalAmount = Price.Mul(Qtt).Div(Divider.Pow(decimal.New(int64(TargetTokenData.Decimal), 0)))
@@ -287,7 +323,7 @@ func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, s
 		delete(ownerData.Pending, tokenSN)
 	}
 
-	if err = SetAddressInfo(stub, owner, ownerData, "stodexUnRegister", args); err != nil {
+	if err = SetAddressInfo(stub, ownerData, "stodexUnRegister", args); err != nil {
 		return err
 	}
 
@@ -314,16 +350,16 @@ func StodexUnRegister(stub shim.ChaincodeStubInterface, owner, exchangeItemPK, s
 func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeItemPK, exchangePK, signature, tkey string, args []string) error {
 	var err error
 	var Price, Qtt, ownerPlusAmount, ownerMinusAmount, remainAmount, tAmount decimal.Decimal
-	var ownerData, requesterData mtc.MetaWallet
-	var BaseTokenData, TargetTokenData mtc.Token
+	var ownerData, requesterData mtc.TWallet
+	var BaseTokenData, TargetTokenData mtc.TMRC010
 	var ownerPlusToken, ownerMinusToken int
 	var now int64
-	var item mtc.ExchangeItem
-	var exchangeResult mtc.ExchangeResult
+	var item TSTODEXItem
+	var exchangeResult TSTODEXResult
 	var data []byte
 	var targs []string
-	var balance mtc.BalanceInfo
-	var balanceList []mtc.BalanceInfo
+	var balance mtc.TMRC010Balance
+	var balanceList []mtc.TMRC010Balance
 	var requesterSide string
 
 	now = time.Now().Unix()
@@ -363,12 +399,12 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	}
 
 	// check base token
-	if BaseTokenData, _, err = GetToken(stub, strconv.Itoa(item.BaseToken)); err != nil {
+	if BaseTokenData, _, err = GetMRC010(stub, strconv.Itoa(item.BaseToken)); err != nil {
 		return err
 	}
 
 	// check exchange token
-	if TargetTokenData, _, err = GetToken(stub, strconv.Itoa(item.TargetToken)); err != nil {
+	if TargetTokenData, _, err = GetMRC010(stub, strconv.Itoa(item.TargetToken)); err != nil {
 		return err
 	}
 
@@ -540,7 +576,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	targs = append(targs, strconv.FormatInt(now, 10))
 	targs = append(targs, exchangeItemPK)
 	targs = append(targs, exchangePK)
-	if err = SetAddressInfo(stub, item.Owner, ownerData, "stodexExchangePending", targs); err != nil {
+	if err = SetAddressInfo(stub, ownerData, "stodexExchangePending", targs); err != nil {
 		return err
 	}
 
@@ -581,7 +617,7 @@ func StodexExchange(stub shim.ChaincodeStubInterface, requester, qtt, exchangeIt
 	targs = append(targs, strconv.FormatInt(now, 36))
 	targs = append(targs, exchangeItemPK)
 	targs = append(targs, exchangePK)
-	if err = SetAddressInfo(stub, requester, requesterData, "stodexExchangeRequest", targs); err != nil {
+	if err = SetAddressInfo(stub, requesterData, "stodexExchangeRequest", targs); err != nil {
 		return err
 	}
 	if item.Side == "BUY" {
@@ -655,8 +691,8 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	toAddr, toAmount, toToken, toFeeAddr, toFeeAmount, toFeeToken, toTKey, toSignature string,
 	args []string) error {
 	var err error
-	var mwFrom, mwTo, mwFromfee, mwTofee mtc.MetaWallet
-	var PmwFrom, PmwTo, PmwFromfee, PmwTofee *mtc.MetaWallet
+	var mwFrom, mwTo, mwFromfee, mwTofee mtc.TWallet
+	var PmwFrom, PmwTo, PmwFromfee, PmwTofee *mtc.TWallet
 
 	// addr check
 	if !util.IsAddress(fromAddr) {
@@ -673,16 +709,16 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	}
 
 	// token check
-	if _, _, err = GetToken(stub, fromToken); err != nil {
+	if _, _, err = GetMRC010(stub, fromToken); err != nil {
 		return err
 	}
-	if _, _, err = GetToken(stub, toToken); err != nil {
+	if _, _, err = GetMRC010(stub, toToken); err != nil {
 		return err
 	}
-	if _, _, err = GetToken(stub, fromFeeToken); err != nil {
+	if _, _, err = GetMRC010(stub, fromFeeToken); err != nil {
 		return err
 	}
-	if _, _, err = GetToken(stub, toFeeToken); err != nil {
+	if _, _, err = GetMRC010(stub, toFeeToken); err != nil {
 		return err
 	}
 
@@ -762,7 +798,7 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	// from fee
 	if PmwFromfee != nil {
 		if _, err = util.ParsePositive(fromFeeAmount); err == nil {
-			if _, _, err = GetToken(stub, fromFeeToken); err != nil {
+			if _, _, err = GetMRC010(stub, fromFeeToken); err != nil {
 				return err
 			}
 			if err = MoveToken(stub, PmwFrom, PmwFromfee, fromFeeToken, fromFeeAmount, 0); err != nil {
@@ -777,7 +813,7 @@ func Exchange(stub shim.ChaincodeStubInterface,
 	// to fee
 	if PmwTofee != nil {
 		if _, err = util.ParsePositive(toFeeAmount); err == nil {
-			if _, _, err = GetToken(stub, toFeeToken); err != nil {
+			if _, _, err = GetMRC010(stub, toFeeToken); err != nil {
 				return err
 			}
 			if err = MoveToken(stub, PmwTo, PmwTofee, toFeeToken, toFeeAmount, 0); err != nil {
@@ -789,23 +825,23 @@ func Exchange(stub shim.ChaincodeStubInterface,
 		}
 	}
 
-	if err = SetAddressInfo(stub, fromAddr, mwFrom, "exchange", args); err != nil {
+	if err = SetAddressInfo(stub, mwFrom, "exchange", args); err != nil {
 		return err
 	}
-	if err = SetAddressInfo(stub, toAddr, mwTo, "exchangePair", args); err != nil {
+	if err = SetAddressInfo(stub, mwTo, "exchangePair", args); err != nil {
 		return err
 	}
 
 	// from fee
 	if PmwFromfee != nil {
-		if err = SetAddressInfo(stub, fromFeeAddr, *PmwFromfee, "exchangeFee", args); err != nil {
+		if err = SetAddressInfo(stub, *PmwFromfee, "exchangeFee", args); err != nil {
 			return err
 		}
 	}
 
 	// to fee
 	if PmwTofee != nil {
-		if err = SetAddressInfo(stub, toFeeAddr, *PmwTofee, "exchangeFeePair", args); err != nil {
+		if err = SetAddressInfo(stub, *PmwTofee, "exchangeFeePair", args); err != nil {
 			return err
 		}
 	}

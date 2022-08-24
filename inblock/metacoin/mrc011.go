@@ -13,8 +13,42 @@ import (
 	"inblock/metacoin/util"
 )
 
+// TMRC011 : Coupon/Ticket base
+type TMRC011 struct {
+	Creator      string `json:"creator"`
+	Name         string `json:"name"`
+	TotalSupply  int    `json:"totalsupply"`
+	UsedCount    int    `json:"used_count"`
+	PublishCount int    `json:"publish_count"`
+	RemainCount  int    `json:"remain_count"`
+	ValidityYype string `json:"validity_type"`
+	IsTransfer   int    `json:"is_transfer"`
+	StartDate    int64  `json:"start_date"`
+	EndDate      int64  `json:"end_date"`
+	Term         int    `json:"term"`
+	Code         string `json:"code"`
+	Data         string `json:"data"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
+}
+
+// TMRC012 : Coupon/Ticket
+type TMRC012 struct {
+	Creator    string `json:"creator"`
+	Owner      string `json:"owner"`
+	Name       string `json:"name"`
+	CreateDate int64  `json:"create_date"`
+	ExpireDate int64  `json:"expire_date"`
+	Code       string `json:"code"`
+	Data       string `json:"data"`
+	JobType    string `json:"job_type"`
+	JobArgs    string `json:"job_args"`
+	JobDate    int64  `json:"jobdate"`
+}
+
 // Mrc011set : save MRC011
-func Mrc011set(stub shim.ChaincodeStubInterface, MRC011ID string, tk mtc.MRC011, JobType string, args []string) error {
+func Mrc011set(stub shim.ChaincodeStubInterface, MRC011ID string, tk TMRC011, JobType string, args []string) error {
 	var dat []byte
 	var err error
 	if len(MRC011ID) != 40 {
@@ -45,9 +79,9 @@ func Mrc011set(stub shim.ChaincodeStubInterface, MRC011ID string, tk mtc.MRC011,
 }
 
 // Mrc011get : get MRC011
-func Mrc011get(stub shim.ChaincodeStubInterface, MRC011ID string) (mtc.MRC011, error) {
+func Mrc011get(stub shim.ChaincodeStubInterface, MRC011ID string) (TMRC011, error) {
 	var data []byte
-	var tk mtc.MRC011
+	var tk TMRC011
 	var err error
 
 	if len(MRC011ID) != 40 {
@@ -70,7 +104,7 @@ func Mrc011get(stub shim.ChaincodeStubInterface, MRC011ID string) (mtc.MRC011, e
 }
 
 // SetMRC012 : save MRC012
-func SetMRC012(stub shim.ChaincodeStubInterface, MRC012ID string, tk mtc.MRC012, JobType string, args []string) error {
+func SetMRC012(stub shim.ChaincodeStubInterface, MRC012ID string, tk TMRC012, JobType string, args []string) error {
 	var dat []byte
 	var err error
 	if len(MRC012ID) != 40 {
@@ -104,8 +138,8 @@ func MRC011Create(stub shim.ChaincodeStubInterface, mrc011id, creator, name, tot
 	var err error
 	var i int
 	var j int64
-	var mrc011 mtc.MRC011
-	var creatorData mtc.MetaWallet
+	var mrc011 TMRC011
+	var creatorData mtc.TWallet
 
 	if creatorData, err = GetAddressInfo(stub, creator); err != nil {
 		return err
@@ -157,7 +191,8 @@ func MRC011Create(stub shim.ChaincodeStubInterface, mrc011id, creator, name, tot
 		mrc011.IsTransfer = 1
 	}
 
-	if err = NonceCheck(&creatorData, tkey, strings.Join([]string{creator, name, totalsupply, validitytype, istransfer, code, data, tkey}, "|"), signature); err != nil {
+	if err = NonceCheck(&creatorData, tkey,
+		strings.Join([]string{creator, name, totalsupply, validitytype, istransfer, code, data, tkey}, "|"), signature); err != nil {
 		return err
 	}
 

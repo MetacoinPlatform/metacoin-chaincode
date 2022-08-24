@@ -12,6 +12,21 @@ import (
 	"inblock/metacoin/util"
 )
 
+// TMRC020 - Delaied open
+type TMRC020 struct {
+	Owner        string `json:"owner"`
+	Data         string `json:"data"`
+	CreateDate   int64  `json:"createdate"` // read only
+	OpenDate     int64  `json:"opendate"`   // read only
+	PublicKey    string `json:"publickey"`
+	Algorithm    string `json:"algorithm"`
+	ReferenceKey string `json:"referencekey"`
+	IsOpen       int    `json:"is_open"`
+	JobType      string `json:"job_type"`
+	JobDate      int64  `json:"jobdate"`
+	Type         string `json:"type"`
+}
+
 // =========================================
 // mrc020.go
 // =========================================
@@ -21,8 +36,9 @@ func Mrc020set(stub shim.ChaincodeStubInterface, owner, algorithm, data, publick
 	var dat []byte
 	var mrc020Key string
 	var err error
-	var mrc020 mtc.MRC020
+	var mrc020 TMRC020
 	var currNo64 int64
+	var mwOwner mtc.TWallet
 
 	if currNo64, err = util.Strtoint64(opendate); err != nil {
 		return "", errors.New("1102,Invalid opendate")
@@ -46,7 +62,6 @@ func Mrc020set(stub shim.ChaincodeStubInterface, owner, algorithm, data, publick
 		return "", errors.New("6204,Invalid MTC020 Data format")
 	}
 
-	var mwOwner mtc.MetaWallet
 	if mwOwner, err = GetAddressInfo(stub, owner); err != nil {
 		return "", err
 	}
@@ -67,7 +82,7 @@ func Mrc020set(stub shim.ChaincodeStubInterface, owner, algorithm, data, publick
 func Mrc020get(stub shim.ChaincodeStubInterface, mrc020Key string) (string, error) {
 	var dat []byte
 	var err error
-	var mrc020 mtc.MRC020
+	var mrc020 TMRC020
 
 	if strings.Index(mrc020Key, "MRC020_") != 0 {
 		return "", errors.New("6102,invalid MRC020 data address")

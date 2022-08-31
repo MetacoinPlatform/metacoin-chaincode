@@ -740,6 +740,9 @@ func Mrc010Sell(stub shim.ChaincodeStubInterface, args []string) error {
 	if token, _, err = GetMRC010(stub, dex.SellToken); err != nil {
 		return err
 	}
+	if mrc010.Id == token.Id {
+		return errors.New("3005,The sale token must be different from the payment token")
+	}
 
 	// 5 platformname
 	if err = util.DataAssign(args[5], &dex.PlatformName, "", 1, 256, true); err != nil {

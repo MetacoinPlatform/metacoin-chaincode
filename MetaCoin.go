@@ -215,6 +215,41 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error(err.Error())
 		}
 
+	case "mrc010sell":
+		if err = metacoin.Mrc010Sell(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010unsell":
+		if err = metacoin.Mrc010UnSell(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010buy":
+		if err = metacoin.Mrc010Buy(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010auction":
+		if err = metacoin.Mrc010Auction(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010unauction":
+		if err = metacoin.Mrc010UnAuction(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010bid":
+		if err = metacoin.Mrc010AuctionBid(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010auctionfinish":
+		if err = metacoin.Mrc010AuctionFinish(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
 	case "mrc020":
 		if len(args) < 8 {
 			return shim.Error("1000,mrc20 operation must include four arguments : owner, algorithm, data, publickey, opendata, referencekey, sign, tkey")

@@ -8,3 +8,4 @@ inblock/metacoin/util/CVS/*
 build/CVS/*
 build/bin/CVS/*
 metacoin
+.vscode

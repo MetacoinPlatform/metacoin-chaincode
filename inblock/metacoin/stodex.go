@@ -164,7 +164,7 @@ func StodexRegister(stub shim.ChaincodeStubInterface,
 	}
 
 	// collect token balance
-	if err = MRC010Subtract(stub, &ownerData, strconv.Itoa(tokenSN), TotalAmount.String()); err != nil {
+	if err = MRC010Subtract(stub, &ownerData, strconv.Itoa(tokenSN), TotalAmount.String(), MRC010MT_Normal); err != nil {
 		return err
 	}
 

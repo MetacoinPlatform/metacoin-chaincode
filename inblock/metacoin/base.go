@@ -133,7 +133,7 @@ func BalanceOf(stub shim.ChaincodeStubInterface, address string) (string, error)
 	return string(value), nil
 }
 
-// MRC402 수수료 처리
+// DEX 수수료 처리
 func DexFeeCalc(
 	basePrice decimal.Decimal, commissionRate string, TokenID string) (decimal.Decimal, error) {
 
@@ -209,24 +209,26 @@ func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, TokenSN st
 }
 
 // MRC010Subtract 잔액 감소
-func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, TokenSN string, amount string) error {
+func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet,
+	TokenSN string, amount string, SubtractType MRC010ModifyType) error {
 	var err error
-	var subtractAmount, fromCoin decimal.Decimal
-	var fromIDX int
+	var subtractAmount, remainAmount, fromCoin decimal.Decimal
 	var balanceTemp []mtc.TMRC010Balance
-	var iTokenSN int
+	var iTokenSN, findIndex int
 
 	nowTime := time.Now().Unix()
 
+	// value check
 	if subtractAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1101,Amount must be an integer string")
 	}
+	remainAmount = subtractAmount
 
+	// mrc010 check
 	if _, iTokenSN, err = GetMRC010(stub, TokenSN); err != nil {
 		return errors.New("8100,Hyperledger internal error - " + err.Error())
 	}
 
-	isBalanceClean := false
 	for index, element := range wallet.Balance {
 		if element.Token != iTokenSN {
 			continue
@@ -240,127 +242,80 @@ func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, Token
 			continue
 		}
 
-		fromIDX = index
-		if fromCoin.Cmp(subtractAmount) < 0 {
-			subtractAmount = subtractAmount.Sub(fromCoin)
-			wallet.Balance[fromIDX].Balance = "0"
-			if iTokenSN > 0 {
-				isBalanceClean = true
-			}
+		if fromCoin.Cmp(remainAmount) < 0 {
+			remainAmount = remainAmount.Sub(fromCoin)
+			wallet.Balance[index].Balance = "0"
 			continue
 		} else {
-			wallet.Balance[fromIDX].Balance = fromCoin.Sub(subtractAmount).String()
-			subtractAmount = subtractAmount.Sub(subtractAmount)
-
+			wallet.Balance[index].Balance = fromCoin.Sub(remainAmount).String()
+			remainAmount = remainAmount.Sub(remainAmount)
 			break
 		}
 	}
 
-	if isBalanceClean {
-		for _, element := range wallet.Balance {
-			if element.Token > 0 && element.Balance == "0" {
-				continue
-			}
-			balanceTemp = append(balanceTemp, element)
-		}
-		wallet.Balance = balanceTemp
-	}
-
-	if subtractAmount.IsPositive() {
+	// tradeType
+	if remainAmount.IsPositive() {
 		return errors.New("5000,Not enough balance")
 	}
+
+	// write sale or auction price.
+	findIndex = -1
+
+	for index, element := range wallet.Balance {
+		// is empty elements ?
+		if element.Token != iTokenSN {
+			continue
+		}
+		if element.UnlockDate != 0 {
+
+			continue
+		}
+		findIndex = index
+		break
+	}
+	if findIndex == -1 {
+		wallet.Balance = append(wallet.Balance, mtc.TMRC010Balance{Balance: "0",
+			Token:         iTokenSN,
+			UnlockDate:    0,
+			AuctionAmount: "0",
+			SaleAmount:    "0"})
+		findIndex = len(wallet.Balance) - 1
+	}
+
+	if SubtractType == MRC010MT_Sell {
+		sa, _ := decimal.NewFromString(wallet.Balance[findIndex].SaleAmount)
+		wallet.Balance[findIndex].SaleAmount = sa.Add(subtractAmount).String()
+
+	} else if SubtractType == MRC010MT_Auction {
+		sa, _ := decimal.NewFromString(wallet.Balance[findIndex].AuctionAmount)
+		wallet.Balance[findIndex].AuctionAmount = sa.Add(subtractAmount).String()
+	}
+
+	// empty balance remove
+	for _, element := range wallet.Balance {
+		// is empty elements ?
+		if element.Token == 0 {
+			balanceTemp = append(balanceTemp, element)
+			continue
+		}
+
+		if (element.Balance != "0" && element.Balance != "") || (element.AuctionAmount != "0" && element.AuctionAmount != "") && (element.SaleAmount != "0" && element.SaleAmount != "") {
+			balanceTemp = append(balanceTemp, element)
+		}
+	}
+	wallet.Balance = balanceTemp
 	return nil
 }
 
 // MoveToken 잔액을 다른 Wallet 로 이동
 func MoveToken(stub shim.ChaincodeStubInterface, fromwallet *mtc.TWallet, towallet *mtc.TWallet, TokenSN string, amount string, iUnlockDate int64) error {
-	var err error
-	var subtractAmount, fromCoin decimal.Decimal
-	var fromIDX int
-	var toCoin, addAmount decimal.Decimal
-	var toIDX int
-	var balanceTemp []mtc.TMRC010Balance
-	var iTokenSN int
-	var nowTime = time.Now().Unix()
-	if iUnlockDate < nowTime {
-		iUnlockDate = 0
-	}
-	if subtractAmount, err = util.ParsePositive(amount); err != nil {
-		return errors.New("1101,Amount must be an integer string")
-	}
-	addAmount = subtractAmount
-
-	if _, iTokenSN, err = GetMRC010(stub, TokenSN); err != nil {
-		return errors.New("8100,Hyperledger internal error - " + err.Error())
+	// MRC010Subtract 잔액 감소
+	if err := MRC010Subtract(stub, fromwallet, TokenSN, amount, MRC010MT_Normal); err != nil {
+		return err
 	}
 
-	isBalanceClean := false
-	for index, element := range fromwallet.Balance {
-		if element.Token != iTokenSN {
-			continue
-		}
-
-		if nowTime < element.UnlockDate {
-			continue
-		}
-
-		if fromCoin, err = decimal.NewFromString(element.Balance); err != nil {
-			continue
-		}
-
-		fromIDX = index
-		if fromCoin.Cmp(subtractAmount) < 0 {
-			subtractAmount = subtractAmount.Sub(fromCoin)
-			fromwallet.Balance[fromIDX].Balance = "0"
-			if iTokenSN > 0 {
-				isBalanceClean = true
-			}
-			continue
-		} else {
-			fromwallet.Balance[fromIDX].Balance = fromCoin.Sub(subtractAmount).String()
-			subtractAmount = subtractAmount.Sub(subtractAmount)
-			break
-		}
-	}
-
-	if isBalanceClean {
-		for _, element := range fromwallet.Balance {
-			if element.Token > 0 && element.Balance == "0" {
-				continue
-			}
-			balanceTemp = append(balanceTemp, element)
-		}
-		fromwallet.Balance = balanceTemp
-	}
-
-	if subtractAmount.IsPositive() {
-		return errors.New("5000,Not enough balance")
-	}
-
-	toIDX = -1
-	toCoin = decimal.Zero
-	for index, element := range towallet.Balance {
-		if element.Token == iTokenSN {
-			if element.UnlockDate == iUnlockDate {
-				toCoin, _ = decimal.NewFromString(element.Balance)
-				toIDX = index
-				break
-			}
-		}
-	}
-
-	toCoin = toCoin.Add(addAmount).Truncate(0)
-	if toIDX == -1 {
-		if iUnlockDate > 0 {
-			towallet.Balance = append(towallet.Balance, mtc.TMRC010Balance{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: iUnlockDate})
-		} else {
-			towallet.Balance = append(towallet.Balance, mtc.TMRC010Balance{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: 0})
-		}
-	} else {
-		towallet.Balance[toIDX].Balance = toCoin.String()
-		if iUnlockDate > 0 {
-			towallet.Balance[toIDX].UnlockDate = iUnlockDate
-		}
+	if err := MRC010Add(stub, towallet, TokenSN, amount, iUnlockDate); err != nil {
+		return err
 	}
 	return nil
 }

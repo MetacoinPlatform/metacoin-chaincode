@@ -244,32 +244,6 @@ func setDEX402(stub shim.ChaincodeStubInterface, MRC402DexItem TMRC402DEX, jobTy
 	return nil
 }
 
-// MRC402 수수료 처리
-func mrc402FeeCalc(
-	basePrice decimal.Decimal, commissionRate string, TokenID string) (decimal.Decimal, error) {
-
-	var err error
-	var cRate decimal.Decimal
-	var cAmount decimal.Decimal
-	var Percent decimal.Decimal
-
-	if cRate, err = decimal.NewFromString(commissionRate); err != nil {
-		return decimal.Zero, err
-	}
-
-	if cRate.Cmp(decimal.Zero) < 1 {
-		return decimal.Zero, errors.New("commission is zero")
-	}
-	Percent, _ = decimal.NewFromString("100")
-
-	cAmount = basePrice.Mul(cRate).Div(Percent).Floor()
-	if cAmount.Cmp(decimal.Zero) < 1 {
-		return decimal.Zero, errors.New("commission is zero")
-	}
-
-	return cAmount, nil
-}
-
 // 잔액 추가
 //
 // Example:
@@ -279,23 +253,18 @@ func mrc402FeeCalc(
 //     wallet.MRC402["MRC402ID"].Balance // output: "15"
 //
 func mrc402Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id string,
-	amount string, SubtractType MRC402ModifyType) error {
+	amount string, AddType MRC402ModifyType) error {
 	var err error
 	var toCoin, addAmount decimal.Decimal
 	var balance mtc.NFTBalance
 	var exists bool
-	var mrc402 TMRC402
 
 	if addAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1102," + amount + " is not positive integer")
 	}
 
-	if mrc402, _, err = GetMRC402(stub, mrc402id); err != nil {
+	if _, _, err = GetMRC402(stub, mrc402id); err != nil {
 		return err
-	}
-
-	if err = util.DecimalCountCheck(amount, mrc402.Decimal); err != nil {
-		return errors.New("1101," + amount + " decimal is too long")
 	}
 	if wallet.MRC402 == nil {
 		wallet.MRC402 = make(map[string]mtc.NFTBalance)
@@ -313,10 +282,10 @@ func mrc402Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id s
 		balance.Balance = toCoin.String()
 	}
 
-	if SubtractType == MRC402MT_Sell {
+	if AddType == MRC402MT_Sell {
 		sa, _ := decimal.NewFromString(balance.SaleAmount)
 		balance.SaleAmount = sa.Sub(addAmount).String()
-	} else if SubtractType == MRC402MT_Auction {
+	} else if AddType == MRC402MT_Auction {
 		sa, _ := decimal.NewFromString(balance.AuctionAmount)
 		balance.AuctionAmount = sa.Sub(addAmount).String()
 	}
@@ -333,23 +302,20 @@ func mrc402Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id s
 //     err := mrc402Subtract(stub, wallet, "MRC402ID", "10")
 //     wallet.MRC402["MRC402ID"].Balance // output: "5"
 //
-func mrc402Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id string, amount string, SubtractType MRC402ModifyType) error {
+func mrc402Subtract(stub shim.ChaincodeStubInterface,
+	wallet *mtc.TWallet, mrc402id string, amount string,
+	SubtractType MRC402ModifyType) error {
 	var err error
 	var toCoin, subtractAmount decimal.Decimal
 	var balance mtc.NFTBalance
 	var exists bool
-	var mrc402 TMRC402
 
 	if subtractAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1103," + amount + " is not positive integer")
 	}
 
-	if mrc402, _, err = GetMRC402(stub, mrc402id); err != nil {
+	if _, _, err = GetMRC402(stub, mrc402id); err != nil {
 		return err
-	}
-
-	if err = util.DecimalCountCheck(amount, mrc402.Decimal); err != nil {
-		return errors.New("1101," + amount + " decimal is too long")
 	}
 
 	if wallet.MRC402 == nil {
@@ -394,18 +360,13 @@ func mrc402SubtractSubBalance(stub shim.ChaincodeStubInterface, wallet *mtc.TWal
 	var subtractAmount decimal.Decimal
 	var balance mtc.NFTBalance
 	var exists bool
-	var mrc402 TMRC402
 
 	if subtractAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1104," + amount + " is not positive integer")
 	}
 
-	if mrc402, _, err = GetMRC402(stub, mrc402id); err != nil {
+	if _, _, err = GetMRC402(stub, mrc402id); err != nil {
 		return err
-	}
-
-	if err = util.DecimalCountCheck(amount, mrc402.Decimal); err != nil {
-		return errors.New("1101," + amount + " decimal is too long")
 	}
 
 	if wallet.MRC402 == nil {
@@ -435,18 +396,13 @@ func mrc402Move(stub shim.ChaincodeStubInterface, fromwallet *mtc.TWallet, towal
 	var balanceCheck, moveAmount decimal.Decimal
 	var balance mtc.NFTBalance
 	var exists bool
-	var mrc402 TMRC402
 
 	if moveAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1105," + amount + " is not positive integer")
 	}
 
-	if mrc402, _, err = GetMRC402(stub, mrc402id); err != nil {
+	if _, _, err = GetMRC402(stub, mrc402id); err != nil {
 		return err
-	}
-
-	if err = util.DecimalCountCheck(amount, mrc402.Decimal); err != nil {
-		return errors.New("1101," + amount + " decimal is too long")
 	}
 	if fromwallet.MRC402 == nil {
 		return errors.New("5000,Not enough balance")
@@ -497,7 +453,6 @@ func Mrc402Create(stub shim.ChaincodeStubInterface, args []string) error {
 	var MRC402Creator mtc.TWallet
 	var MRC402 TMRC402
 	var buf string
-	var token mtc.TMRC010
 	var reserveAmount decimal.Decimal
 	var totalSupply decimal.Decimal
 
@@ -608,19 +563,16 @@ func Mrc402Create(stub shim.ChaincodeStubInterface, args []string) error {
 		}
 		index := 0
 		for initTokenID, initTokenAmount := range MRC402.InitialReserve {
-			if token, _, err = GetMRC010(stub, initTokenID); err != nil {
+			if _, _, err = GetMRC010(stub, initTokenID); err != nil {
 				return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item token error : " + err.Error())
 			}
 
 			if reserveAmount, err = util.ParsePositive(initTokenAmount); err != nil {
 				return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount error : " + err.Error())
 			}
-			if err = util.DecimalCountCheck(initTokenAmount, token.Decimal); err != nil {
-				return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount decimal error : " + err.Error())
-			}
 
 			reserveAmount = totalSupply.Mul(reserveAmount)
-			if err = MRC010Subtract(stub, &MRC402Creator, initTokenID, reserveAmount.String()); err != nil {
+			if err = MRC010Subtract(stub, &MRC402Creator, initTokenID, reserveAmount.String(), MRC010MT_Normal); err != nil {
 				return err
 			}
 			index++
@@ -841,7 +793,6 @@ func Mrc402Burn(stub shim.ChaincodeStubInterface, args []string) error {
 	var TotalSupply, BurnAmount, BurnableAmount, MeltedAmount decimal.Decimal
 
 	var MRC402Creator mtc.TWallet
-	var token mtc.TMRC010
 	var reserveAmount decimal.Decimal
 	var buf string
 
@@ -887,15 +838,12 @@ func Mrc402Burn(stub shim.ChaincodeStubInterface, args []string) error {
 	// 8 InitialReserve
 	index := 0
 	for initTokenID, initTokenAmount := range mrc402.InitialReserve {
-		if token, _, err = GetMRC010(stub, initTokenID); err != nil {
+		if _, _, err = GetMRC010(stub, initTokenID); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item token error : " + err.Error())
 		}
 
 		if reserveAmount, err = util.ParsePositive(initTokenAmount); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount error : " + err.Error())
-		}
-		if err = util.DecimalCountCheck(initTokenAmount, token.Decimal); err != nil {
-			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount decimal error : " + err.Error())
 		}
 
 		reserveAmount = BurnAmount.Mul(reserveAmount)
@@ -926,7 +874,6 @@ func Mrc402Mint(stub shim.ChaincodeStubInterface, args []string) error {
 	var TotalSupply, MintAmount decimal.Decimal
 
 	var MRC402Creator mtc.TWallet
-	var token mtc.TMRC010
 	var reserveAmount decimal.Decimal
 	var buf string
 
@@ -969,19 +916,16 @@ func Mrc402Mint(stub shim.ChaincodeStubInterface, args []string) error {
 
 	index := 0
 	for initTokenID, initTokenAmount := range MRC402.InitialReserve {
-		if token, _, err = GetMRC010(stub, initTokenID); err != nil {
+		if _, _, err = GetMRC010(stub, initTokenID); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item token error : " + err.Error())
 		}
 
 		if reserveAmount, err = util.ParsePositive(initTokenAmount); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount error : " + err.Error())
 		}
-		if err = util.DecimalCountCheck(initTokenAmount, token.Decimal); err != nil {
-			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount decimal error : " + err.Error())
-		}
 
 		reserveAmount = MintAmount.Mul(reserveAmount)
-		if err = MRC010Subtract(stub, &MRC402Creator, initTokenID, reserveAmount.String()); err != nil {
+		if err = MRC010Subtract(stub, &MRC402Creator, initTokenID, reserveAmount.String(), MRC010MT_Normal); err != nil {
 			return err
 		}
 		index++
@@ -1063,7 +1007,6 @@ func Mrc402Melt(stub shim.ChaincodeStubInterface, args []string) error {
 	var mrc402 TMRC402
 	var meltAmount, MeltedAmount decimal.Decimal
 
-	var token mtc.TMRC010
 	var reserveAmount decimal.Decimal
 
 	if len(args) < 5 {
@@ -1107,15 +1050,12 @@ func Mrc402Melt(stub shim.ChaincodeStubInterface, args []string) error {
 	// 8 InitialReserve
 	index := 0
 	for initTokenID, initTokenAmount := range mrc402.InitialReserve {
-		if token, _, err = GetMRC010(stub, initTokenID); err != nil {
+		if _, _, err = GetMRC010(stub, initTokenID); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item token error : " + err.Error())
 		}
 
 		if reserveAmount, err = util.ParsePositive(initTokenAmount); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount error : " + err.Error())
-		}
-		if err = util.DecimalCountCheck(initTokenAmount, token.Decimal); err != nil {
-			return errors.New("3005," + util.GetOrdNumber(index) + " InitialReserve item amount decimal error : " + err.Error())
 		}
 
 		reserveAmount = meltAmount.Mul(reserveAmount)
@@ -1169,7 +1109,6 @@ func Mrc402Sell(stub shim.ChaincodeStubInterface, args []string) error {
 	var mrc402 TMRC402
 	var sellAmount, unitPrice, totalPrice decimal.Decimal
 	var dex TMRC402DEX
-	var token mtc.TMRC010
 	var argdat []byte
 
 	if len(args) < 11 {
@@ -1208,19 +1147,19 @@ func Mrc402Sell(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	// 3 sellPrice
-	if err = util.NumericDataCheck(args[3], &dex.SellPrice, "0", token.TotalSupply, token.Decimal, false); err != nil {
+	if err = util.NumericDataCheck(args[3], &dex.SellPrice, "1", "", 0, false); err != nil {
 		return err
 	}
 	if unitPrice, err = util.ParsePositive(args[3]); err != nil {
 		return err
 	}
 	totalPrice = sellAmount.Mul(unitPrice)
-	if err = util.NumericDataCheck(totalPrice.String(), nil, "0", token.TotalSupply, token.Decimal, false); err != nil {
+	if err = util.NumericDataCheck(totalPrice.String(), nil, "1", "", 0, false); err != nil {
 		return err
 	}
 
 	// 4 selltoken
-	if token, _, err = GetMRC010(stub, dex.SellToken); err != nil {
+	if _, _, err = GetMRC010(stub, dex.SellToken); err != nil {
 		return err
 	}
 
@@ -1444,7 +1383,6 @@ func Mrc402Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	var mrc402 TMRC402
 	var sellAmount, startPrice, buyNowPrice decimal.Decimal
 	var dex TMRC402DEX
-	var token mtc.TMRC010
 	var argdat []byte
 	var now int64
 
@@ -1490,21 +1428,21 @@ func Mrc402Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	// 3 auction start price
-	if err = util.NumericDataCheck(args[3], &dex.AuctionStartPrice, "1", token.TotalSupply, token.Decimal, false); err != nil {
+	if err = util.NumericDataCheck(args[3], &dex.AuctionStartPrice, "1", "", 0, false); err != nil {
 		return err
 	}
 	// 4 selltoken
-	if token, _, err = GetMRC010(stub, args[4]); err != nil {
+	if _, _, err = GetMRC010(stub, args[4]); err != nil {
 		return err
 	}
 
 	// 5 auction bidding unit
-	if err = util.NumericDataCheck(args[5], &dex.AuctionBiddingUnit, "1", token.TotalSupply, token.Decimal, true); err != nil {
+	if err = util.NumericDataCheck(args[5], &dex.AuctionBiddingUnit, "1", "", 0, true); err != nil {
 		return err
 	}
 
 	// 6 auction buy now price
-	if err = util.NumericDataCheck(args[6], &dex.AuctionBuyNowPrice, "0", token.TotalSupply, token.Decimal, true); err != nil {
+	if err = util.NumericDataCheck(args[6], &dex.AuctionBuyNowPrice, "0", "", 0, true); err != nil {
 		return err
 	}
 
@@ -1821,7 +1759,7 @@ func Mrc402AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	// not buy now
-	if err = MRC010Subtract(stub, &buyerWallet, dex.SellToken, newBidPrice.String()); err != nil {
+	if err = MRC010Subtract(stub, &buyerWallet, dex.SellToken, newBidPrice.String(), MRC010MT_Normal); err != nil {
 		return err
 	}
 	if err = SetAddressInfo(stub, buyerWallet, "transfer_mrc402bid",
@@ -1918,7 +1856,7 @@ func Mrc402AuctionFinish(stub shim.ChaincodeStubInterface, args []string) error 
 // 2. 주소별 지급 내역 저장
 // 3. DEx 저장.
 func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWallet mtc.TWallet,
-	PaymentInfo []mtc.TDexPaymentInfo, traceType MRC402ModifyType, tradeAmount, sign, tkey string) error {
+	PaymentInfo []mtc.TDexPaymentInfo, tradeType MRC402ModifyType, tradeAmount, sign, tkey string) error {
 	var mrc402 TMRC402
 	var receiveAmount, paymentAmount, tradeAmountDecimal decimal.Decimal
 	var commission decimal.Decimal
@@ -1937,7 +1875,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 	}
 	var RecvMap map[string]RecvMapType
 
-	if traceType == MRC402MT_Auction {
+	if tradeType == MRC402MT_Auction {
 		buyerAddress = dex.AuctionCurrentBidder
 		sellerType = "mrc402_recv_auction"
 		if dex.AuctionCurrentPrice == dex.AuctionBuyNowPrice {
@@ -1947,7 +1885,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 		}
 		receiveAmount, _ = decimal.NewFromString(dex.AuctionCurrentPrice)
 		paymentAmount = receiveAmount
-	} else if traceType == MRC402MT_Sell {
+	} else if tradeType == MRC402MT_Sell {
 		buyerAddress = dex.Buyer
 		sellerType = "mrc402_recv_sell"
 		dexType = "mrc402_buy"
@@ -1963,7 +1901,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 	}
 
 	// 3. creator commission calc
-	if commission, err = mrc402FeeCalc(paymentAmount, mrc402.CreatorCommission, dex.SellToken); err == nil {
+	if commission, err = DexFeeCalc(paymentAmount, mrc402.CreatorCommission, dex.SellToken); err == nil {
 		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: mrc402.Creator,
 			Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc402_recv_fee_creator"})
 		receiveAmount = receiveAmount.Sub(commission)
@@ -1971,7 +1909,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 
 	// 4. platform commission calc
 	if util.IsAddress(dex.PlatformAddress) {
-		if commission, err = mrc402FeeCalc(paymentAmount, dex.PlatformCommission, dex.SellToken); err == nil {
+		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission, dex.SellToken); err == nil {
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.PlatformAddress,
 				Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc402_recv_fee_platform"})
 			receiveAmount = receiveAmount.Sub(commission)
@@ -1980,7 +1918,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 
 	// 5. shareholder commission calc
 	for shareholderAddress, shcomm := range mrc402.ShareHolder {
-		if commission, err = mrc402FeeCalc(paymentAmount, shcomm, dex.SellToken); err == nil {
+		if commission, err = DexFeeCalc(paymentAmount, shcomm, dex.SellToken); err == nil {
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: shareholderAddress,
 				Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc402_recv_fee_shareholder"})
 			receiveAmount = receiveAmount.Sub(commission)
@@ -2082,7 +2020,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 			}
 		}
 		if v.amount.Cmp(decimal.Zero) < 0 {
-			if err = MRC010Subtract(stub, &walletData, dex.SellToken, v.amount.Abs().String()); err != nil {
+			if err = MRC010Subtract(stub, &walletData, dex.SellToken, v.amount.Abs().String(), MRC010MT_Normal); err != nil {
 				return err
 			}
 		} else if v.amount.Cmp(decimal.Zero) > 0 {
@@ -2094,11 +2032,11 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 		}
 
 		if checkAddr == dex.Seller {
-			if traceType == MRC402MT_Auction {
+			if tradeType == MRC402MT_Auction {
 				if err = mrc402SubtractSubBalance(stub, &walletData, dex.MRC402, tradeAmount, MRC402MT_Auction); err != nil {
 					return err
 				}
-			} else if traceType == MRC402MT_Sell {
+			} else if tradeType == MRC402MT_Sell {
 				if err = mrc402SubtractSubBalance(stub, &walletData, dex.MRC402, tradeAmount, MRC402MT_Sell); err != nil {
 					return err
 				}

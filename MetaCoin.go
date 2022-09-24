@@ -205,13 +205,13 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 			return shim.Error(err.Error())
 		}
 
-	case "tokenBurning":
-		if err = metacoin.TokenBurning(stub, args); err != nil {
+	case "tokenIncrease":
+		if err = metacoin.TokenIncrease(stub, args); err != nil {
 			return shim.Error(err.Error())
 		}
 
-	case "tokenIncrease":
-		if err = metacoin.TokenIncrease(stub, args); err != nil {
+	case "tokenBurning":
+		if err = metacoin.TokenBurning(stub, args); err != nil {
 			return shim.Error(err.Error())
 		}
 
@@ -227,6 +227,21 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 
 	case "mrc010buy":
 		if err = metacoin.Mrc010Buy(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010reqsell":
+		if err = metacoin.Mrc010ReqSell(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010unreqsell":
+		if err = metacoin.Mrc010UnReqSell(stub, args); err != nil {
+			return shim.Error(err.Error())
+		}
+
+	case "mrc010acceptreqsell":
+		if err = metacoin.Mrc010AcceptReqSell(stub, args); err != nil {
 			return shim.Error(err.Error())
 		}
 

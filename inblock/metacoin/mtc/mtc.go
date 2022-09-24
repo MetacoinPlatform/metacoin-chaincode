@@ -14,18 +14,19 @@ const InitSupply = 800000000
 
 // MetaWallet - wallet data.
 type TWallet struct {
-	Id       string                `json:"id"`
-	Regdate  int64                 `json:"regdate"`
-	Password string                `json:"password"`
-	Addinfo  string                `json:"addinfo"`
-	JobType  string                `json:"job_type"`
-	JobArgs  string                `json:"job_args"`
-	JobDate  int64                 `json:"jobdate"`
-	Balance  []TMRC010Balance      `json:"balance"`
-	MRC402   map[string]NFTBalance `json:"mrc402"`
-	MRC800   map[string]string     `json:"mrc800"`
-	Pending  map[int]string        `json:"pending"`
-	Nonce    string                `json:"nonce"`
+	Id       string                   `json:"id"`
+	Regdate  int64                    `json:"regdate"`
+	Password string                   `json:"password"`
+	Addinfo  string                   `json:"addinfo"`
+	JobType  string                   `json:"job_type"`
+	JobArgs  string                   `json:"job_args"`
+	JobDate  int64                    `json:"jobdate"`
+	Balance  []TMRC010Balance         `json:"balance"`
+	MRC010   map[int]TMRC010BalanceV2 `json:"mrc010"`
+	MRC402   map[string]NFTBalance    `json:"mrc402"`
+	MRC800   map[string]string        `json:"mrc800"`
+	Pending  map[int]string           `json:"pending"`
+	Nonce    string                   `json:"nonce"`
 }
 
 type NFTBalance struct {
@@ -36,9 +37,19 @@ type NFTBalance struct {
 
 // BalanceInfo - token balance info with unlockdate
 type TMRC010Balance struct {
-	Balance    string `json:"balance"`
-	Token      int    `json:"token"`
-	UnlockDate int64  `json:"unlockdate"`
+	Balance       string `json:"balance"`
+	Token         int    `json:"token"`
+	UnlockDate    int64  `json:"unlockdate"`
+	SaleAmount    string `json:"saleamount"`
+	AuctionAmount string `json:"auctionamount"`
+}
+
+// BalanceInfo - token balance info with unlockdate
+type TMRC010BalanceV2 struct {
+	Balance       string         `json:"balance"`
+	SaleAmount    string         `json:"saleamount"`
+	AuctionAmount string         `json:"auctionamount"`
+	LockedList    map[int]string `json:"locked_list"`
 }
 
 // Token MRC010 - TOKEN

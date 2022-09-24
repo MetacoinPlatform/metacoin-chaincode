@@ -154,7 +154,7 @@ func MRC030Create(stub shim.ChaincodeStubInterface, mrc030id, Creator, Title, De
 
 	if decReward.IsPositive() {
 		totReward = decReward.Mul(decMaxRewardRecipient)
-		if err = MRC010Subtract(stub, &CreatorData, RewardToken, totReward.String()); err != nil {
+		if err = MRC010Subtract(stub, &CreatorData, RewardToken, totReward.String(), MRC010MT_Normal); err != nil {
 			return err
 		}
 	} else {

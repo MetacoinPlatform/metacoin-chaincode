@@ -532,7 +532,7 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	// subtract token for item initial price
 	for token, totPrice := range createTotal {
 		if totPrice.IsPositive() {
-			if err = MRC010Subtract(stub, &projectOwnerWallet, token, totPrice.String()); err != nil {
+			if err = MRC010Subtract(stub, &projectOwnerWallet, token, totPrice.String(), MRC010MT_Normal); err != nil {
 				return err
 			}
 		}
@@ -660,7 +660,7 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	// subtract token for item initial price
 	for token, totPrice := range createTotal {
 		if totPrice.IsPositive() {
-			if err = MRC010Subtract(stub, &projectOwnerWallet, token, totPrice.String()); err != nil {
+			if err = MRC010Subtract(stub, &projectOwnerWallet, token, totPrice.String(), MRC010MT_Normal); err != nil {
 				return err
 			}
 		}
@@ -984,7 +984,7 @@ func Mrc401Buy(stub shim.ChaincodeStubInterface, buyer, mrc401id, signature, tke
 	// set payment info 1st - buy(buyer => mrc401)
 	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: buyer, ToAddr: mrc401id,
 		Amount: payPrice.String(), TokenID: MRC401ItemData.SellToken, PayType: "mrc401_buy"})
-	if err = MRC010Subtract(stub, &buyerWallet, MRC401ItemData.SellToken, payPrice.String()); err != nil {
+	if err = MRC010Subtract(stub, &buyerWallet, MRC401ItemData.SellToken, payPrice.String(), MRC010MT_Normal); err != nil {
 		return err
 	}
 
@@ -1515,7 +1515,7 @@ func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, buyer, mrc401id, amount,
 		Amount: amount, TokenID: MRC401ItemData.AuctionToken, PayType: "mrc401_bid"})
 
 	// buyer token subtract & save
-	if err = MRC010Subtract(stub, &buyerWallet, MRC401ItemData.AuctionToken, amount); err != nil {
+	if err = MRC010Subtract(stub, &buyerWallet, MRC401ItemData.AuctionToken, amount, MRC010MT_Normal); err != nil {
 		return err
 	}
 

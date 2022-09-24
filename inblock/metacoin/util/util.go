@@ -222,6 +222,20 @@ func DecimalCountCheck(src string, maxDecimal int) error {
 	return nil
 }
 
+func MulDecimal(dsrc decimal.Decimal, floatSize int32) decimal.Decimal {
+	var cRate, mu decimal.Decimal
+	cRate, _ = decimal.NewFromString("10")
+	mu = decimal.NewFromInt32(floatSize)
+	return dsrc.Mul(cRate.Pow(mu))
+}
+
+func DivDecimal(dsrc decimal.Decimal, floatSize int32) decimal.Decimal {
+	var cRate, mu decimal.Decimal
+	cRate, _ = decimal.NewFromString("10")
+	mu = decimal.NewFromInt32(floatSize)
+	return dsrc.Div(cRate.Pow(mu)).Floor()
+}
+
 // NumericDataCheck string length check and return trimming
 func NumericDataCheck(src string, dest *string, minValue string, maxValue string, maxDecimal int, allowEmpty bool) error {
 	var err error
@@ -347,12 +361,14 @@ func ParsePositive(s string) (decimal.Decimal, error) {
 	var d decimal.Decimal
 	var err error
 
-	if d, err = decimal.NewFromString(s); err != nil {
-		return d, errors.New("1101, " + s + " is not integer string")
-	}
 	if !isNumeric(s) {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
+
+	if d, err = decimal.NewFromString(s); err != nil {
+		return d, errors.New("1101, " + s + " is not integer string")
+	}
+
 	if !d.IsPositive() {
 		return d, errors.New("1101, " + s + " is either 0 or negative.")
 	}
@@ -364,17 +380,18 @@ func ParseNotNegative(s string) (decimal.Decimal, error) {
 	var d decimal.Decimal
 	var err error
 
-	if d, err = decimal.NewFromString(s); err != nil {
+	if !isNumeric(s) {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
 
-	if !isNumeric(s) {
+	if d, err = decimal.NewFromString(s); err != nil {
 		return d, errors.New("1101, " + s + " is not integer string")
 	}
 
 	if d.IsNegative() {
 		return d, errors.New("1101," + s + " is negative.")
 	}
+
 	return d, nil
 }
 

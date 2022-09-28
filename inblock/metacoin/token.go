@@ -2078,6 +2078,9 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 			if dex.RemainAmount == "0" && !decBuyTotalPrice.IsZero() {
 				PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.Buyer,
 					Amount: decBuyTotalPrice.String(), TokenID: paymentToken, PayType: "mrc010_recv_fee_remain"})
+				if err = mrc010SubtractSubBalance(stub, &walletData, paymentToken, decBuyTotalPrice.String(), MRC010MT_Sell); err != nil {
+					return err
+				}
 				if err = MRC010Add(stub, &walletData, paymentToken, decBuyTotalPrice.String(), 0); err != nil {
 					return err
 				}

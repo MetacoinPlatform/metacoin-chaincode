@@ -909,21 +909,21 @@ func Mrc010UnSell(stub shim.ChaincodeStubInterface, args []string) error {
 		return errors.New("3004,DEX Item is not sell item")
 	}
 	if (dex.JobType != "mrc010_sell") && (dex.JobType != "mrc010_buy") {
-		return errors.New("3004,DEX Item is not sell item")
+		return errors.New("3014,DEX Item is not sell item, [" + dex.JobType + "]")
 	}
 	switch dex010Status(dex) {
 	case MRC010DS_SELL:
 		// OK
 	case MRC010DS_AUCTION_WAIT, MRC010DS_AUCTION, MRC010DS_AUCTION_END, MRC010DS_AUCTION_FINISH:
-		return errors.New("3004,DEX Item is not sell item")
+		return errors.New("3024,DEX Item is not sell item")
 	case MRC010DS_CANCLED:
-		return errors.New("3004,DEX Item is already canceled")
+		return errors.New("3034,DEX Item is already canceled")
 	case MRC010DS_SOLDOUT:
-		return errors.New("3004,DEX Item is already traded")
+		return errors.New("3044,DEX Item is already traded")
 	case MRC010DS_BUY:
-		return errors.New("3004,DEX Item is not sell item")
+		return errors.New("3054,DEX Item is not sell item")
 	default:
-		return errors.New("3004,DEX Item status is unknown")
+		return errors.New("3064,DEX Item status is unknown")
 	}
 
 	// 1 seller
@@ -1913,7 +1913,7 @@ func mrc010DexProcess(stub shim.ChaincodeStubInterface, dex TMRC010DEX, buyerWal
 func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, actorWallet mtc.TWallet,
 	PaymentInfo []mtc.TDexPaymentInfo, tradeType MRC010ModifyType, paymentAmount decimal.Decimal,
 	tradeAmount, sign, tkey string) error {
-	var commission, tAmount, totalPayment decimal.Decimal
+	var commission, tAmount, totalPayment, decBuyTotalPrice decimal.Decimal
 	var actorAddress string
 	var walletData mtc.TWallet
 	var addrParams []string
@@ -1937,40 +1937,35 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 	fmt.Println("paymentAmount", paymentAmount) // requester => seller
 	fmt.Println("tradeAmount", tradeAmount)     // seller => requester
 
-	if tradeType == MRC010MT_Buy { // reqsell => acceptreqsell
-		actorAddress = dex.Seller
-		sellerType = "mrc010_recv_buy"
-		dexType = "mrc010_acceptreqsell"
-		totalPayment = paymentAmount
-		paymentToken = dex.BuyToken
-	}
+	actorAddress = dex.Seller
+	sellerType = "mrc010_recv_buy"
+	dexType = "mrc010_acceptreqsell"
+	totalPayment = paymentAmount
+	paymentToken = dex.BuyToken
 
 	// platform commission calc
 	commission = decimal.Zero
 	if util.IsAddress(dex.PlatformAddress) {
-		fmt.Println("PlatformCommission", dex.PlatformCommission)
-		fmt.Println("Commission tokenID", paymentToken)
 		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission, paymentToken); err != nil {
 			commission = decimal.Zero
 		}
 	}
 
-	fmt.Println("Calc Commission", commission)
 	// commission or remain price send to platform
-	tAmount, _ = decimal.NewFromString(dex.BuyTotalPrice)
-	tAmount = tAmount.Sub(paymentAmount)
+	decBuyTotalPrice, _ = decimal.NewFromString(dex.BuyTotalPrice)
+	decBuyTotalPrice = decBuyTotalPrice.Sub(paymentAmount)
 	if commission.IsPositive() {
-		if tAmount.Cmp(commission) < 0 {
-			commission = tAmount
+		if decBuyTotalPrice.Cmp(commission) < 0 {
+			commission = decBuyTotalPrice
 		}
-		tAmount = tAmount.Sub(commission)
+		decBuyTotalPrice = decBuyTotalPrice.Sub(commission)
 		totalPayment = totalPayment.Add(commission)
 		// dex -> platform, commission dex.buytoken
 		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.PlatformAddress,
 			Amount: commission.String(), TokenID: paymentToken, PayType: "mrc010_recv_fee_platform"})
 	}
+	dex.BuyTotalPrice = decBuyTotalPrice.String() // set remain token.
 
-	dex.BuyTotalPrice = tAmount.String() // set remain token.
 	// dex -> buyer sellamount
 	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.Buyer,
 		TradeAmount: tradeAmount, TradeID: dex.MRC010, PayType: sellerType})
@@ -1979,10 +1974,6 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 	RecvMap = make(map[string]RecvMapType)
 	Nev, _ := decimal.NewFromString("-1")
 	for _, pi := range PaymentInfo {
-		fmt.Println("\nLine 2003", pi.PayType, pi.FromAddr, "=>", pi.ToAddr,
-			"Amount : ", pi.Amount, pi.TokenID,
-			"Trade : ", pi.TradeAmount, pi.TradeID)
-
 		if pi.PayType == "mrc010_sell" {
 			tAmount, _ = decimal.NewFromString(pi.TradeAmount)
 			pi.TradeAmount = tAmount.Mul(Nev).String()
@@ -2029,18 +2020,10 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 			dt.amount = dt.amount.Add(tAmount)
 			RecvMap[checkAddr] = dt
 		}
-
-		fmt.Println("RecvMap", checkAddr,
-			RecvMap[checkAddr].jobType,
-			RecvMap[checkAddr].fromAddr,
-			RecvMap[checkAddr].toAddr,
-			"Payment : ", RecvMap[checkAddr].amount,
-			"TradeAmount : ", RecvMap[checkAddr].tradeAmount)
 	}
 
 	// payinfo save
 	for _, v := range RecvMap {
-		fmt.Println("\nLine 2063", v.jobType, v.fromAddr, "=>", v.toAddr, "Amount", v.amount.String(), "Trade", v.tradeAmount)
 		switch v.jobType {
 		case "mrc010_sell": // seller => dex  mrc010
 			jobType = "transfer_mrc010sell"
@@ -2057,7 +2040,6 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 		} else {
 			checkAddr = v.toAddr
 		}
-		fmt.Println(v.jobType, jobType, checkAddr, v.amount.String())
 
 		if tradeType == MRC010MT_Buy && checkAddr == dex.Seller {
 			walletData = actorWallet
@@ -2068,18 +2050,15 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 		}
 		decTradeAmount, _ := decimal.NewFromString(v.tradeAmount)
 		if decTradeAmount.Cmp(decimal.Zero) < 0 {
-			fmt.Println("SubTract", walletData.Id, paymentToken, decTradeAmount.Abs().String())
 			if err = MRC010Subtract(stub, &walletData, dex.MRC010, decTradeAmount.Abs().String(), MRC010MT_Normal); err != nil {
 				return err
 			}
 		} else if decTradeAmount.Cmp(decimal.Zero) > 0 {
-			fmt.Println("Add", walletData.Id, paymentToken, v.tradeAmount)
 			if err = MRC010Add(stub, &walletData, dex.MRC010, v.tradeAmount, 0); err != nil {
 				return err
 			}
 		}
 		if v.amount.Cmp(decimal.Zero) > 0 {
-			fmt.Println("Add", walletData.Id, paymentToken, v.amount.String())
 			if err = MRC010Add(stub, &walletData, paymentToken, v.amount.String(), 0); err != nil {
 				return err
 			}
@@ -2092,20 +2071,27 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 		}
 
 		if tradeType == MRC010MT_Buy && checkAddr == dex.Buyer {
-			fmt.Println("SubBalance", walletData.Id, paymentToken, totalPayment.String())
 			if err = mrc010SubtractSubBalance(stub, &walletData, paymentToken, totalPayment.String(), MRC010MT_Sell); err != nil {
 				return err
 			}
+
+			if dex.RemainAmount == "0" && !decBuyTotalPrice.IsZero() {
+				PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.Buyer,
+					Amount: decBuyTotalPrice.String(), TokenID: paymentToken, PayType: "mrc010_recv_fee_remain"})
+				if err = MRC010Add(stub, &walletData, paymentToken, decBuyTotalPrice.String(), 0); err != nil {
+					return err
+				}
+			}
 		}
 
-		addrParams = []string{v.fromAddr, v.toAddr, v.amount.Abs().String(), paymentToken, sign, "0", decTradeAmount.Abs().String(), dex.MRC010, tkey}
+		addrParams = []string{v.fromAddr, v.toAddr, v.amount.Abs().String(), paymentToken, sign,
+			"0", decTradeAmount.Abs().String(), dex.MRC010, tkey}
 		if err = SetAddressInfo(stub, walletData, jobType, addrParams); err != nil {
 			return err
 		}
 	}
-	if tradeType == MRC010MT_Buy { // reqsell => acceptreqsell
-		addrParams = []string{dex.Id, dex.Buyer, actorAddress, util.JSONEncode(PaymentInfo), dex.MRC010}
-	}
+
+	addrParams = []string{dex.Id, dex.Buyer, actorAddress, util.JSONEncode(PaymentInfo), dex.MRC010}
 	if err = setDEX010(stub, dex, dexType, addrParams); err != nil {
 		return err
 	}

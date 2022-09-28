@@ -299,7 +299,9 @@ func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet,
 			continue
 		}
 
-		if (element.Balance != "0" && element.Balance != "") || (element.AuctionAmount != "0" && element.AuctionAmount != "") && (element.SaleAmount != "0" && element.SaleAmount != "") {
+		if (element.Balance != "0" && element.Balance != "") ||
+			(element.AuctionAmount != "0" && element.AuctionAmount != "") ||
+			(element.SaleAmount != "0" && element.SaleAmount != "") {
 			balanceTemp = append(balanceTemp, element)
 		}
 	}

@@ -13,6 +13,8 @@ version 2.1		2021-02-14
 
 version 2.2     MRC 400, 401, 402 - NFT
 
+vertion 2.3	MRC 010(Token DEX)
+
 */
 import (
 	"fmt"

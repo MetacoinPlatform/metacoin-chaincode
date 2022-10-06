@@ -213,25 +213,27 @@ func setDEX402(stub shim.ChaincodeStubInterface, MRC402DexItem TMRC402DEX, jobTy
 		MRC402DexItem.RegDate = MRC402DexItem.JobDate
 	}
 
-	if (jobType == "mrc402_unsell") && (MRC402DexItem.CancelDate == 0) {
-		MRC402DexItem.CancelDate = MRC402DexItem.JobDate
-	}
+	switch jobType {
+	case "mrc402_unsell", "mrc402_unauction":
+		if MRC402DexItem.CancelDate == 0 {
+			MRC402DexItem.CancelDate = MRC402DexItem.JobDate
+		}
 
-	if (jobType == "mrc402_unauction") && (MRC402DexItem.CancelDate == 0) {
-		MRC402DexItem.CancelDate = MRC402DexItem.JobDate
-	}
-
-	if (jobType == "mrc402_buy") && (MRC402DexItem.SellDate == 0) {
-		if MRC402DexItem.RemainAmount == "0" {
+	case "mrc402_buy":
+		if (MRC402DexItem.SellDate == 0) && (MRC402DexItem.RemainAmount == "0") {
 			MRC402DexItem.SellDate = MRC402DexItem.JobDate
 		}
-	}
 
-	if (jobType == "mrc402_auctionwinning" || jobType == "mrc402_auctionbuynow") && (MRC402DexItem.AuctionSettledDate == 0) {
-		MRC402DexItem.SellDate = MRC402DexItem.JobDate
-		MRC402DexItem.AuctionSettledDate = MRC402DexItem.JobDate
-	} else if (jobType == "mrc402_auctionfailure") && (MRC402DexItem.AuctionSettledDate == 0) {
-		MRC402DexItem.AuctionSettledDate = MRC402DexItem.JobDate
+	case "mrc402_auctionwinning", "mrc402_auctionbuynow":
+		if MRC402DexItem.AuctionSettledDate == 0 {
+			MRC402DexItem.SellDate = MRC402DexItem.JobDate
+			MRC402DexItem.AuctionSettledDate = MRC402DexItem.JobDate
+		}
+
+	case "mrc010_auctionfailure":
+		if MRC402DexItem.AuctionSettledDate == 0 {
+			MRC402DexItem.AuctionSettledDate = MRC402DexItem.JobDate
+		}
 	}
 
 	if byte_data, err = json.Marshal(MRC402DexItem); err != nil {

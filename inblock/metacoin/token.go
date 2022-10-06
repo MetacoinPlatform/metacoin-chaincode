@@ -576,25 +576,27 @@ func setDEX010(stub shim.ChaincodeStubInterface, MRC010DexItem TMRC010DEX, jobTy
 		MRC010DexItem.RegDate = MRC010DexItem.JobDate
 	}
 
-	if (jobType == "mrc010_unsell" || jobType == "mrc010_unreqsell") && (MRC010DexItem.CancelDate == 0) {
-		MRC010DexItem.CancelDate = MRC010DexItem.JobDate
-	}
+	switch jobType {
+	case "mrc010_unsell", "mrc010_unreqsell", "mrc010_unauction":
+		if MRC010DexItem.CancelDate == 0 {
+			MRC010DexItem.CancelDate = MRC010DexItem.JobDate
+		}
 
-	if (jobType == "mrc010_unauction") && (MRC010DexItem.CancelDate == 0) {
-		MRC010DexItem.CancelDate = MRC010DexItem.JobDate
-	}
-
-	if (jobType == "mrc010_buy" || jobType == "mrc010_acceptreqsell") && (MRC010DexItem.SellDate == 0) {
-		if MRC010DexItem.RemainAmount == "0" {
+	case "mrc010_buy", "mrc010_acceptreqsell":
+		if (MRC010DexItem.SellDate == 0) && (MRC010DexItem.RemainAmount == "0") {
 			MRC010DexItem.SellDate = MRC010DexItem.JobDate
 		}
-	}
 
-	if (jobType == "mrc010_auctionwinning" || jobType == "mrc010_auctionbuynow") && (MRC010DexItem.AuctionSettledDate == 0) {
-		MRC010DexItem.SellDate = MRC010DexItem.JobDate
-		MRC010DexItem.AuctionSettledDate = MRC010DexItem.JobDate
-	} else if (jobType == "mrc010_auctionfailure") && (MRC010DexItem.AuctionSettledDate == 0) {
-		MRC010DexItem.AuctionSettledDate = MRC010DexItem.JobDate
+	case "mrc010_auctionwinning", "mrc010_auctionbuynow":
+		if MRC010DexItem.AuctionSettledDate == 0 {
+			MRC010DexItem.SellDate = MRC010DexItem.JobDate
+			MRC010DexItem.AuctionSettledDate = MRC010DexItem.JobDate
+		}
+
+	case "mrc010_auctionfailure":
+		if MRC010DexItem.AuctionSettledDate == 0 {
+			MRC010DexItem.AuctionSettledDate = MRC010DexItem.JobDate
+		}
 	}
 
 	if byte_data, err = json.Marshal(MRC010DexItem); err != nil {

@@ -15,22 +15,29 @@ import (
 	"inblock/metacoin/util"
 )
 
-/* MRC800 - point
-There is no issue quantity.
-MRC800 creators can give MRC800 Tokens to users without restrictions.
-MRC800 creators can bring MRC800 Tokens to users without restrictions.
-When the MRC800 token is in a transferable state, the owner of the MRC800 can transfer it to other users.
-*/
+// TMRC800
+type TMRC800 struct {
+	Owner        string `json:"owner"`
+	CreateDate   int64  `json:"createdate"` // read only
+	Name         string `json:"name"`
+	URL          string `json:"url"`
+	ImageURL     string `json:"image_url"`
+	Transferable string `json:"transferable"`
+	Description  string `json:"description"`
+	JobType      string `json:"job_type"`
+	JobArgs      string `json:"job_args"`
+	JobDate      int64  `json:"jobdate"`
+}
 
 // Mrc800Create create MRC800 Item
 func Mrc800Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, transferable, description, signature, tkey string, args []string) error {
 	var err error
-	var ownerWallet mtc.MetaWallet
+	var ownerWallet mtc.TWallet
 	var mrc800id string
-	var MRC800ProjectData mtc.MRC800
+	var MRC800ProjectData TMRC800
 	var argdat []byte
 
-	MRC800ProjectData = mtc.MRC800{
+	MRC800ProjectData = TMRC800{
 		CreateDate: time.Now().Unix(),
 	}
 
@@ -96,7 +103,7 @@ func Mrc800Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, 
 		return errors.New("8600,Hyperledger internal error - " + err.Error() + mrc800id)
 	}
 
-	if err = SetAddressInfo(stub, owner, ownerWallet, "mrc800create", []string{mrc800id, owner, name, url, imageurl, description, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, ownerWallet, "mrc800create", []string{mrc800id, owner, name, url, imageurl, description, signature, tkey}); err != nil {
 		return err
 	}
 	return nil
@@ -105,8 +112,8 @@ func Mrc800Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, 
 // Mrc800Update for MTC110 token update.
 func Mrc800Update(stub shim.ChaincodeStubInterface, mrc800id, name, url, imageurl, transferable, description, signature, tkey string, args []string) error {
 	var err error
-	var ownerWallet mtc.MetaWallet
-	var MRC800ProjectData mtc.MRC800
+	var ownerWallet mtc.TWallet
+	var MRC800ProjectData TMRC800
 	var argdat []byte
 	var mrc800 string
 
@@ -157,7 +164,7 @@ func Mrc800Update(stub shim.ChaincodeStubInterface, mrc800id, name, url, imageur
 		return errors.New("8600,Hyperledger internal error - " + err.Error() + mrc800id)
 	}
 
-	if err = SetAddressInfo(stub, MRC800ProjectData.Owner, ownerWallet, "mrc800update", []string{mrc800id, MRC800ProjectData.Owner, name, url, imageurl, description, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, ownerWallet, "mrc800update", []string{mrc800id, MRC800ProjectData.Owner, name, url, imageurl, description, signature, tkey}); err != nil {
 		return err
 	}
 	return nil
@@ -184,8 +191,8 @@ func Mrc800get(stub shim.ChaincodeStubInterface, mrc800id string) (string, error
 
 func Mrc800give(stub shim.ChaincodeStubInterface, mrc800id, toAddr, amount, memo, signature, tkey string) error {
 	var err error
-	var tokenOwnerWallet, toAddrWallet mtc.MetaWallet
-	var mrc800Token mtc.MRC800
+	var tokenOwnerWallet, toAddrWallet mtc.TWallet
+	var mrc800Token TMRC800
 	var mrc800 string
 	var addAmount, currentAmount decimal.Decimal
 
@@ -222,14 +229,14 @@ func Mrc800give(stub shim.ChaincodeStubInterface, mrc800id, toAddr, amount, memo
 		currentAmount, _ = decimal.NewFromString(toAddrWallet.MRC800[mrc800id])
 		toAddrWallet.MRC800[mrc800id] = currentAmount.Add(addAmount).String()
 	}
-	err = SetAddressInfo(stub, toAddr, toAddrWallet, "receive_mrc800give", []string{mrc800Token.Owner, toAddr, amount, mrc800id, signature, "0", "", memo, tkey})
+	err = SetAddressInfo(stub, toAddrWallet, "receive_mrc800give", []string{mrc800Token.Owner, toAddr, amount, mrc800id, signature, "0", "", memo, tkey})
 	return err
 }
 
 func Mrc800take(stub shim.ChaincodeStubInterface, mrc800id, fromAddr, amount, memo, signature, tkey string) error {
 	var err error
-	var tokenOwnerWallet, fromAddrWallet mtc.MetaWallet
-	var mrc800Token mtc.MRC800
+	var tokenOwnerWallet, fromAddrWallet mtc.TWallet
+	var mrc800Token TMRC800
 	var mrc800 string
 	var subAmount, currentAmount decimal.Decimal
 
@@ -269,14 +276,14 @@ func Mrc800take(stub shim.ChaincodeStubInterface, mrc800id, fromAddr, amount, me
 	}
 
 	fromAddrWallet.MRC800[mrc800id] = currentAmount.Sub(subAmount).String()
-	err = SetAddressInfo(stub, fromAddr, fromAddrWallet, "transfer_mrc800take", []string{fromAddr, mrc800Token.Owner, amount, mrc800id, signature, "0", "", memo, tkey})
+	err = SetAddressInfo(stub, fromAddrWallet, "transfer_mrc800take", []string{fromAddr, mrc800Token.Owner, amount, mrc800id, signature, "0", "", memo, tkey})
 	return err
 }
 
 func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id, amount, memo, signature, tkey string) error {
 	var err error
-	var fromAddrWallet, toAddrWallet mtc.MetaWallet
-	var mrc800Token mtc.MRC800
+	var fromAddrWallet, toAddrWallet mtc.TWallet
+	var mrc800Token TMRC800
 	var mrc800 string
 	var transferAmount, currentAmount decimal.Decimal
 
@@ -316,7 +323,7 @@ func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id
 	}
 
 	fromAddrWallet.MRC800[mrc800id] = currentAmount.Sub(transferAmount).String()
-	if err = SetAddressInfo(stub, fromAddr, fromAddrWallet, "transfer_mrc800", []string{fromAddr, toAddr, amount, mrc800id, signature, "0", "", memo, tkey}); err != nil {
+	if err = SetAddressInfo(stub, fromAddrWallet, "transfer_mrc800", []string{fromAddr, toAddr, amount, mrc800id, signature, "0", "", memo, tkey}); err != nil {
 		return err
 	}
 
@@ -330,7 +337,7 @@ func Mrc800transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, mrc800id
 		currentAmount, _ = decimal.NewFromString(toAddrWallet.MRC800[mrc800id])
 		toAddrWallet.MRC800[mrc800id] = currentAmount.Add(transferAmount).String()
 	}
-	err = SetAddressInfo(stub, toAddr, toAddrWallet, "receive_mrc800", []string{fromAddr, toAddr, amount, mrc800id, signature, "0", "", memo, tkey})
+	err = SetAddressInfo(stub, toAddrWallet, "receive_mrc800", []string{fromAddr, toAddr, amount, mrc800id, signature, "0", "", memo, tkey})
 
 	return err
 }

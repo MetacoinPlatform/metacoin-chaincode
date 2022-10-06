@@ -31,14 +31,6 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 	var block *pem.Block
 	var address string
 
-	mcData := mtc.MetaWallet{Regdate: time.Now().Unix(),
-		Addinfo:  addinfo,
-		Password: publicKey,
-		JobDate:  time.Now().Unix(),
-		JobType:  "NewWallet",
-		Nonce:    util.MakeRandomString(40),
-		Balance:  []mtc.BalanceInfo{{Balance: "0", Token: 0, UnlockDate: 0}}}
-
 	var isSuccess = false
 	for i := 1; i <= 10; i++ {
 		w := util.MakeRandomString(30)
@@ -52,6 +44,15 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 			break
 		}
 	}
+
+	mcData := mtc.TWallet{Regdate: time.Now().Unix(),
+		Id:       address,
+		Addinfo:  addinfo,
+		Password: publicKey,
+		JobDate:  time.Now().Unix(),
+		JobType:  "NewWallet",
+		Nonce:    util.MakeRandomString(40),
+		Balance:  []mtc.TMRC010Balance{{Balance: "0", Token: 0, UnlockDate: 0}}}
 
 	if !isSuccess {
 		return "", errors.New("3005,Address generate error")
@@ -108,7 +109,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 		return "", errors.New("3102,Public key curve size must be 384 or 521")
 	}
 
-	if err := SetAddressInfo(stub, address, mcData, "NewWallet", []string{address, publicKey, addinfo}); err != nil {
+	if err := SetAddressInfo(stub, mcData, "NewWallet", []string{address, publicKey, addinfo}); err != nil {
 		return "", err
 	}
 	return address, nil
@@ -117,7 +118,7 @@ func NewWallet(stub shim.ChaincodeStubInterface, publicKey string, addinfo strin
 // BalanceOf - get balance of address.
 func BalanceOf(stub shim.ChaincodeStubInterface, address string) (string, error) {
 	var err error
-	var dat mtc.MetaWallet
+	var dat mtc.TWallet
 	var value []byte
 	if dat, err = GetAddressInfo(stub, address); err != nil {
 		return "[]", err
@@ -132,8 +133,34 @@ func BalanceOf(stub shim.ChaincodeStubInterface, address string) (string, error)
 	return string(value), nil
 }
 
+// DEX 수수료 처리
+func DexFeeCalc(
+	basePrice decimal.Decimal, commissionRate string, TokenID string) (decimal.Decimal, error) {
+
+	var err error
+	var cRate decimal.Decimal
+	var cAmount decimal.Decimal
+	var Percent decimal.Decimal
+
+	if cRate, err = decimal.NewFromString(commissionRate); err != nil {
+		return decimal.Zero, err
+	}
+
+	if cRate.Cmp(decimal.Zero) < 1 {
+		return decimal.Zero, errors.New("commission is zero")
+	}
+	Percent, _ = decimal.NewFromString("100")
+
+	cAmount = basePrice.Mul(cRate).Div(Percent).Floor()
+	if cAmount.Cmp(decimal.Zero) < 1 {
+		return decimal.Zero, errors.New("commission is zero")
+	}
+
+	return cAmount, nil
+}
+
 // MRC010Add 잔액 추가
-func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN string, amount string, iUnlockDate int64) error {
+func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, TokenSN string, amount string, iUnlockDate int64) error {
 	var err error
 	var toCoin, addAmount decimal.Decimal
 	var toIDX, iTokenSN int
@@ -147,7 +174,7 @@ func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN
 		return errors.New("1101," + amount + " is not positive integer")
 	}
 
-	if _, iTokenSN, err = GetToken(stub, TokenSN); err != nil {
+	if _, iTokenSN, err = GetMRC010(stub, TokenSN); err != nil {
 		return err
 	}
 
@@ -168,9 +195,9 @@ func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN
 	toCoin = toCoin.Add(addAmount).Truncate(0)
 	if toIDX == -1 {
 		if iUnlockDate > 0 {
-			wallet.Balance = append(wallet.Balance, mtc.BalanceInfo{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: iUnlockDate})
+			wallet.Balance = append(wallet.Balance, mtc.TMRC010Balance{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: iUnlockDate})
 		} else {
-			wallet.Balance = append(wallet.Balance, mtc.BalanceInfo{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: 0})
+			wallet.Balance = append(wallet.Balance, mtc.TMRC010Balance{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: 0})
 		}
 	} else {
 		wallet.Balance[toIDX].Balance = toCoin.String()
@@ -182,24 +209,26 @@ func MRC010Add(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN
 }
 
 // MRC010Subtract 잔액 감소
-func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, TokenSN string, amount string) error {
+func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet,
+	TokenSN string, amount string, SubtractType MRC010ModifyType) error {
 	var err error
-	var subtractAmount, fromCoin decimal.Decimal
-	var fromIDX int
-	var balanceTemp []mtc.BalanceInfo
-	var iTokenSN int
+	var subtractAmount, remainAmount, fromCoin decimal.Decimal
+	var balanceTemp []mtc.TMRC010Balance
+	var iTokenSN, findIndex int
 
 	nowTime := time.Now().Unix()
 
+	// value check
 	if subtractAmount, err = util.ParsePositive(amount); err != nil {
 		return errors.New("1101,Amount must be an integer string")
 	}
+	remainAmount = subtractAmount
 
-	if _, iTokenSN, err = GetToken(stub, TokenSN); err != nil {
+	// mrc010 check
+	if _, iTokenSN, err = GetMRC010(stub, TokenSN); err != nil {
 		return errors.New("8100,Hyperledger internal error - " + err.Error())
 	}
 
-	isBalanceClean := false
 	for index, element := range wallet.Balance {
 		if element.Token != iTokenSN {
 			continue
@@ -213,127 +242,82 @@ func MRC010Subtract(stub shim.ChaincodeStubInterface, wallet *mtc.MetaWallet, To
 			continue
 		}
 
-		fromIDX = index
-		if fromCoin.Cmp(subtractAmount) < 0 {
-			subtractAmount = subtractAmount.Sub(fromCoin)
-			wallet.Balance[fromIDX].Balance = "0"
-			if iTokenSN > 0 {
-				isBalanceClean = true
-			}
+		if fromCoin.Cmp(remainAmount) < 0 {
+			remainAmount = remainAmount.Sub(fromCoin)
+			wallet.Balance[index].Balance = "0"
 			continue
 		} else {
-			wallet.Balance[fromIDX].Balance = fromCoin.Sub(subtractAmount).String()
-			subtractAmount = subtractAmount.Sub(subtractAmount)
-
+			wallet.Balance[index].Balance = fromCoin.Sub(remainAmount).String()
+			remainAmount = remainAmount.Sub(remainAmount)
 			break
 		}
 	}
 
-	if isBalanceClean {
-		for _, element := range wallet.Balance {
-			if element.Token > 0 && element.Balance == "0" {
-				continue
-			}
-			balanceTemp = append(balanceTemp, element)
-		}
-		wallet.Balance = balanceTemp
-	}
-
-	if subtractAmount.IsPositive() {
+	// tradeType
+	if remainAmount.IsPositive() {
 		return errors.New("5000,Not enough balance")
 	}
+
+	// write sale or auction price.
+	findIndex = -1
+
+	for index, element := range wallet.Balance {
+		// is empty elements ?
+		if element.Token != iTokenSN {
+			continue
+		}
+		if element.UnlockDate != 0 {
+
+			continue
+		}
+		findIndex = index
+		break
+	}
+	if findIndex == -1 {
+		wallet.Balance = append(wallet.Balance, mtc.TMRC010Balance{Balance: "0",
+			Token:         iTokenSN,
+			UnlockDate:    0,
+			AuctionAmount: "0",
+			SaleAmount:    "0"})
+		findIndex = len(wallet.Balance) - 1
+	}
+
+	if SubtractType == MRC010MT_Sell {
+		sa, _ := decimal.NewFromString(wallet.Balance[findIndex].SaleAmount)
+		wallet.Balance[findIndex].SaleAmount = sa.Add(subtractAmount).String()
+
+	} else if SubtractType == MRC010MT_Auction {
+		sa, _ := decimal.NewFromString(wallet.Balance[findIndex].AuctionAmount)
+		wallet.Balance[findIndex].AuctionAmount = sa.Add(subtractAmount).String()
+	}
+
+	// empty balance remove
+	for _, element := range wallet.Balance {
+		// is empty elements ?
+		if element.Token == 0 {
+			balanceTemp = append(balanceTemp, element)
+			continue
+		}
+
+		if (element.Balance != "0" && element.Balance != "") ||
+			(element.AuctionAmount != "0" && element.AuctionAmount != "") ||
+			(element.SaleAmount != "0" && element.SaleAmount != "") {
+			balanceTemp = append(balanceTemp, element)
+		}
+	}
+	wallet.Balance = balanceTemp
 	return nil
 }
 
 // MoveToken 잔액을 다른 Wallet 로 이동
-func MoveToken(stub shim.ChaincodeStubInterface, fromwallet *mtc.MetaWallet, towallet *mtc.MetaWallet, TokenSN string, amount string, iUnlockDate int64) error {
-	var err error
-	var subtractAmount, fromCoin decimal.Decimal
-	var fromIDX int
-	var toCoin, addAmount decimal.Decimal
-	var toIDX int
-	var balanceTemp []mtc.BalanceInfo
-	var iTokenSN int
-	var nowTime = time.Now().Unix()
-	if iUnlockDate < nowTime {
-		iUnlockDate = 0
-	}
-	if subtractAmount, err = util.ParsePositive(amount); err != nil {
-		return errors.New("1101,Amount must be an integer string")
-	}
-	addAmount = subtractAmount
-
-	if _, iTokenSN, err = GetToken(stub, TokenSN); err != nil {
-		return errors.New("8100,Hyperledger internal error - " + err.Error())
+func MoveToken(stub shim.ChaincodeStubInterface, fromwallet *mtc.TWallet, towallet *mtc.TWallet, TokenSN string, amount string, iUnlockDate int64) error {
+	// MRC010Subtract 잔액 감소
+	if err := MRC010Subtract(stub, fromwallet, TokenSN, amount, MRC010MT_Normal); err != nil {
+		return err
 	}
 
-	isBalanceClean := false
-	for index, element := range fromwallet.Balance {
-		if element.Token != iTokenSN {
-			continue
-		}
-
-		if nowTime < element.UnlockDate {
-			continue
-		}
-
-		if fromCoin, err = decimal.NewFromString(element.Balance); err != nil {
-			continue
-		}
-
-		fromIDX = index
-		if fromCoin.Cmp(subtractAmount) < 0 {
-			subtractAmount = subtractAmount.Sub(fromCoin)
-			fromwallet.Balance[fromIDX].Balance = "0"
-			if iTokenSN > 0 {
-				isBalanceClean = true
-			}
-			continue
-		} else {
-			fromwallet.Balance[fromIDX].Balance = fromCoin.Sub(subtractAmount).String()
-			subtractAmount = subtractAmount.Sub(subtractAmount)
-			break
-		}
-	}
-
-	if isBalanceClean {
-		for _, element := range fromwallet.Balance {
-			if element.Token > 0 && element.Balance == "0" {
-				continue
-			}
-			balanceTemp = append(balanceTemp, element)
-		}
-		fromwallet.Balance = balanceTemp
-	}
-
-	if subtractAmount.IsPositive() {
-		return errors.New("5000,Not enough balance")
-	}
-
-	toIDX = -1
-	toCoin = decimal.Zero
-	for index, element := range towallet.Balance {
-		if element.Token == iTokenSN {
-			if element.UnlockDate == iUnlockDate {
-				toCoin, _ = decimal.NewFromString(element.Balance)
-				toIDX = index
-				break
-			}
-		}
-	}
-
-	toCoin = toCoin.Add(addAmount).Truncate(0)
-	if toIDX == -1 {
-		if iUnlockDate > 0 {
-			towallet.Balance = append(towallet.Balance, mtc.BalanceInfo{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: iUnlockDate})
-		} else {
-			towallet.Balance = append(towallet.Balance, mtc.BalanceInfo{Balance: toCoin.String(), Token: iTokenSN, UnlockDate: 0})
-		}
-	} else {
-		towallet.Balance[toIDX].Balance = toCoin.String()
-		if iUnlockDate > 0 {
-			towallet.Balance[toIDX].UnlockDate = iUnlockDate
-		}
+	if err := MRC010Add(stub, towallet, TokenSN, amount, iUnlockDate); err != nil {
+		return err
 	}
 	return nil
 }
@@ -341,7 +325,7 @@ func MoveToken(stub shim.ChaincodeStubInterface, fromwallet *mtc.MetaWallet, tow
 // Transfer send token
 func Transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, transferAmount, token, unlockdate, signature, tkey string, args []string) error {
 	var err error
-	var fromData, toData mtc.MetaWallet
+	var fromData, toData mtc.TWallet
 	var iUnlockDate int64
 
 	if !util.IsAddress(fromAddr) {
@@ -354,7 +338,7 @@ func Transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, transferAmount
 		return errors.New("3201,From address and to address must be different values")
 	}
 
-	if _, _, err = GetToken(stub, token); err != nil {
+	if _, _, err = GetMRC010(stub, token); err != nil {
 		return err
 	}
 	if iUnlockDate, err = util.Strtoint64(unlockdate); err != nil {
@@ -380,10 +364,10 @@ func Transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, transferAmount
 		return err
 	}
 
-	if err = SetAddressInfo(stub, fromAddr, fromData, "transfer", args); err != nil {
+	if err = SetAddressInfo(stub, fromData, "transfer", args); err != nil {
 		return err
 	}
-	if err = SetAddressInfo(stub, toAddr, toData, "receive", args); err != nil {
+	if err = SetAddressInfo(stub, toData, "receive", args); err != nil {
 		return err
 	}
 	fmt.Printf("Transfer [%s] => [%s]  / Amount : [%s] TokenID : [%s] UnlockDate : [%s]\n", fromAddr, toAddr, transferAmount, token, unlockdate)
@@ -393,9 +377,9 @@ func Transfer(stub shim.ChaincodeStubInterface, fromAddr, toAddr, transferAmount
 // MultiTransfer send token to multi address
 func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, token, signature, tkey string, args []string) error {
 	var err error
-	var fromData, toData mtc.MetaWallet
+	var fromData, toData mtc.TWallet
 	var iUnlockDate int64
-	var target []mtc.MultiTransferList
+	var target []mtc.TMRC010TransferList
 	var toList map[string]int
 
 	if !util.IsAddress(fromAddr) {
@@ -414,7 +398,7 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 		return errors.New("3290,Transfer list is in the wrong data - " + err.Error())
 	}
 
-	if _, _, err = GetToken(stub, token); err != nil {
+	if _, _, err = GetMRC010(stub, token); err != nil {
 		return err
 	}
 	if len(target) < 1 {
@@ -459,13 +443,13 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 			ele.Memo = ele.Memo[0:2048]
 		}
 
-		if err = SetAddressInfo(stub, ele.Address, toData, "receive", []string{fromAddr, ele.Address, ele.Amount, token, signature, ele.UnlockDate, ele.Tag, ele.Memo, tkey}); err != nil {
+		if err = SetAddressInfo(stub, toData, "receive", []string{fromAddr, ele.Address, ele.Amount, token, signature, ele.UnlockDate, ele.Tag, ele.Memo, tkey}); err != nil {
 			return err
 		}
 		fmt.Printf("Transfer [%s] => [%s]  / Amount : [%s] TokenID : [%s] UnlockDate : [%s]\n", fromAddr, ele.Address, ele.Amount, token, ele.UnlockDate)
 
 	}
-	if err = SetAddressInfo(stub, fromAddr, fromData, "multi_transfer", args); err != nil {
+	if err = SetAddressInfo(stub, fromData, "multi_transfer", args); err != nil {
 		return err
 	}
 	return nil
@@ -473,7 +457,7 @@ func MultiTransfer(stub shim.ChaincodeStubInterface, fromAddr, transferlist, tok
 
 // GetNonce address info.
 func GetNonce(stub shim.ChaincodeStubInterface, address string) (string, error) {
-	var walletData mtc.MetaWallet
+	var walletData mtc.TWallet
 	var err error
 
 	if walletData, err = GetAddressInfo(stub, address); err != nil {
@@ -486,7 +470,7 @@ func GetNonce(stub shim.ChaincodeStubInterface, address string) (string, error) 
 }
 
 // NonceCheck - nonce check & sign check & generate new nonce
-func NonceCheck(walletData *mtc.MetaWallet, nonce, Data, signature string) error {
+func NonceCheck(walletData *mtc.TWallet, nonce, Data, signature string) error {
 	if walletData.Nonce != "" {
 		if nonce != walletData.Nonce {
 			return errors.New("1102,nonce error")
@@ -507,7 +491,7 @@ func NonceCheck(walletData *mtc.MetaWallet, nonce, Data, signature string) error
 	return nil
 }
 
-func NonceCheckOnly(walletData *mtc.MetaWallet, nonce, Data, signature string) error {
+func NonceCheckOnly(walletData *mtc.TWallet, nonce, Data, signature string) error {
 	if walletData.Nonce != "" {
 		if nonce != walletData.Nonce {
 			return errors.New("1102,nonce error")
@@ -528,8 +512,8 @@ func NonceCheckOnly(walletData *mtc.MetaWallet, nonce, Data, signature string) e
 }
 
 // GetAddressInfo address info.
-func GetAddressInfo(stub shim.ChaincodeStubInterface, key string) (mtc.MetaWallet, error) {
-	var mcData mtc.MetaWallet
+func GetAddressInfo(stub shim.ChaincodeStubInterface, key string) (mtc.TWallet, error) {
+	var mcData mtc.TWallet
 
 	if !util.IsAddress(key) {
 		return mcData, errors.New("3190,[" + key + "] is not Metacoin address")
@@ -544,11 +528,14 @@ func GetAddressInfo(stub shim.ChaincodeStubInterface, key string) (mtc.MetaWalle
 	if err = json.Unmarshal(value, &mcData); err != nil {
 		return mcData, errors.New("3290,Address [" + key + "] is in the wrong data - " + err.Error())
 	}
+	if mcData.Id == "" {
+		mcData.Id = key
+	}
 	return mcData, nil
 }
 
 // SetAddressInfo address info
-func SetAddressInfo(stub shim.ChaincodeStubInterface, key string, mcData mtc.MetaWallet, JobType string, args []string) error {
+func SetAddressInfo(stub shim.ChaincodeStubInterface, mcData mtc.TWallet, JobType string, args []string) error {
 	var dat []byte
 	var argdat []byte
 	var err error
@@ -566,63 +553,14 @@ func SetAddressInfo(stub shim.ChaincodeStubInterface, key string, mcData mtc.Met
 	if dat, err = json.Marshal(mcData); err != nil {
 		return errors.New("3209,Invalid address data format")
 	}
-	if err := stub.PutState(key, dat); err != nil {
-		return errors.New("8600,Hyperledger internal error - " + err.Error() + key)
+	if err := stub.PutState(mcData.Id, dat); err != nil {
+		return errors.New("8600,Hyperledger internal error - " + err.Error() + " - " + mcData.Id)
 	}
 	return nil
-}
-
-// SetTokenInfo : save token info
-func SetTokenInfo(stub shim.ChaincodeStubInterface, key string, tk mtc.Token, JobType string, args []string) error {
-	var dat []byte
-	var err error
-
-	tk.JobType = JobType
-	tk.JobDate = time.Now().Unix()
-	if len(args) > 0 {
-		if dat, err = json.Marshal(args); err == nil {
-			tk.JobArgs = string(dat)
-		}
-	} else {
-		tk.JobArgs = ""
-	}
-
-	if dat, err = json.Marshal(tk); err != nil {
-		return errors.New("4204,Invalid token data format")
-	}
-	if err = stub.PutState("TOKEN_DATA_"+key, dat); err != nil {
-		return errors.New("8600,Hyperledger internal error - " + err.Error())
-	}
-	return nil
-}
-
-// GetToken : get token info
-func GetToken(stub shim.ChaincodeStubInterface, TokenID string) (mtc.Token, int, error) {
-	var data []byte
-	var tk mtc.Token
-	var err error
-	var TokenSN int
-
-	if len(TokenID) == 0 {
-		return tk, 0, errors.New("4002,Token id missing")
-	}
-	if TokenSN, err = util.Strtoint(TokenID); err != nil {
-		return tk, 0, errors.New("4104,Invalid toekn SN")
-	}
-	if data, err = stub.GetState("TOKEN_DATA_" + TokenID); err != nil {
-		return tk, TokenSN, errors.New("8100,Hyperledger internal error - " + err.Error())
-	}
-	if data == nil {
-		return tk, TokenSN, errors.New("4001,Token " + TokenID + " not exists")
-	}
-	if err = json.Unmarshal(data, &tk); err != nil {
-		return tk, TokenSN, errors.New("4204,Invalid token data format - " + err.Error())
-	}
-	return tk, TokenSN, nil
 }
 
 func SignCheck(stub shim.ChaincodeStubInterface, Address, Data, Sign string) error {
-	var walletData mtc.MetaWallet
+	var walletData mtc.TWallet
 	var err error
 
 	if walletData, err = GetAddressInfo(stub, Address); err != nil {

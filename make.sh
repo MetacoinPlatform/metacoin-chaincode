@@ -1,6 +1,4 @@
 #!/bin/bash
-
-cvs up -d -P
 docker build . --force-rm  -t inblock/testnet:latest
 cd ../docker
 docker-compose  -f docker-compose-cc.yaml  up -d

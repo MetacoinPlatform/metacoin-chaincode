@@ -4,3 +4,6 @@ CVS
 *.md
 *.tar.gz
 *.tgz
+.git
+/go
+.vscode

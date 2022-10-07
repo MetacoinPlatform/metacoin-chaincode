@@ -845,7 +845,5 @@ func Exchange(stub shim.ChaincodeStubInterface,
 			return err
 		}
 	}
-	fmt.Printf("Exchange [%s] <=> [%s], => [%s][%s], <= [%s][%s]\n", fromAddr, toAddr, fromAmount, fromToken, toAmount, toToken)
-
 	return nil
 }

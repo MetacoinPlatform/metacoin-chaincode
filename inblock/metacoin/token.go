@@ -1932,12 +1932,6 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 		jobType     string
 	}
 	var RecvMap map[string]RecvMapType
-	fmt.Println("DEX", dex)
-	fmt.Println("actorWallet", actorWallet)
-	fmt.Println("PaymentInfo", PaymentInfo)
-	fmt.Println("tradeType", tradeType)
-	fmt.Println("paymentAmount", paymentAmount) // requester => seller
-	fmt.Println("tradeAmount", tradeAmount)     // seller => requester
 
 	actorAddress = dex.Seller
 	sellerType = "mrc010_recv_buy"

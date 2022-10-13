@@ -404,6 +404,43 @@ func JSONEncode(v interface{}) string {
 	}
 }
 
+func TradePriceCalc(mintradeunit string, unitPrice decimal.Decimal, amount decimal.Decimal) (decimal.Decimal, error) {
+	var totalPrice decimal.Decimal
+	var decimalCount int
+	var fixedUnit decimal.Decimal
+	switch mintradeunit {
+	case "1":
+		decimalCount = 0
+	case "10":
+		decimalCount = 1
+	case "100":
+		decimalCount = 2
+	case "1000":
+		decimalCount = 3
+	case "10000":
+		decimalCount = 4
+	case "100000":
+		decimalCount = 5
+	case "1000000":
+		decimalCount = 6
+	case "10000000":
+		decimalCount = 7
+	case "100000000":
+		decimalCount = 8
+	default:
+		return totalPrice, errors.New("MinTradeUnit is invalid : " + mintradeunit)
+	}
+	match, _ := regexp.MatchString("0{"+strconv.Itoa(decimalCount)+","+strconv.Itoa(decimalCount)+"}$", amount.String())
+	if !match {
+		return totalPrice, errors.New("The trade quantity must be a multiple of " + mintradeunit)
+	}
+
+	fixedUnit, _ = decimal.NewFromString(mintradeunit)
+	totalPrice = unitPrice.Mul(amount).Div(fixedUnit)
+
+	return totalPrice, nil
+}
+
 func ISO3166Check(country_code string) error {
 	if country_code == "" {
 		return nil

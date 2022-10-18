@@ -84,6 +84,22 @@ func tDecimalCountCheck(t *testing.T, s string, decimalCount int, isSuccess bool
 	}
 }
 
+func tTradePriceCalc(t *testing.T, mintradeunit, unitprice, amount, checkvalue string, isSuccess bool) {
+
+	/*
+		e := tradePriceCalc(mintradeunit, decimalCount)
+		if isSuccess {
+			if e != nil {
+				t.Fatalf(` DataAssign("%s") = %q, %v, Bad error occurred %#q`, s, decimalCount, isSuccess, s)
+			}
+		} else {
+			if e == nil {
+				t.Fatalf(` DataAssign("%s") = %q, %v, Wrong success %#q`, s, decimalCount, isSuccess, s)
+			}
+		}
+	*/
+}
+
 func TestDecimalCountCheck(t *testing.T) {
 	tDecimalCountCheck(t, "0.0", 1, true)
 	tDecimalCountCheck(t, "0.0001", 1, false)

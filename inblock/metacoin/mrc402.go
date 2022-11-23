@@ -230,7 +230,7 @@ func setDEX402(stub shim.ChaincodeStubInterface, MRC402DexItem TMRC402DEX, jobTy
 			MRC402DexItem.AuctionSettledDate = MRC402DexItem.JobDate
 		}
 
-	case "mrc010_auctionfailure":
+	case "mrc402_auctionfailure":
 		if MRC402DexItem.AuctionSettledDate == 0 {
 			MRC402DexItem.AuctionSettledDate = MRC402DexItem.JobDate
 		}
@@ -1989,21 +1989,21 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 		switch v.jobType {
 		case "mrc402_recv_item": // dex => buyer mrc402
 			jobType = "receive_mrc402item"
-		case "mrc402_buy": // buyer => dex	구매비용 지불(MRC010)
+		case "mrc402_buy": // buyer => dex	구매비용 지불(MRC402)
 			jobType = "transfer_mrc402buy"
-		case "mrc402_bid": // buyer => dex	입찰 비용 지불(MRC010)
+		case "mrc402_bid": // buyer => dex	입찰 비용 지불(MRC402)
 			jobType = "transfer_mrc402bid"
-		case "mrc402_recv_sell": // dex => seller	판매자 대금 받음(MRC010)
+		case "mrc402_recv_sell": // dex => seller	판매자 대금 받음(MRC402)
 			jobType = "receive_mrc402sell"
-		case "mrc402_recv_auction": // dex => seller	경매 낙찰금액 받음(MRC010)
+		case "mrc402_recv_auction": // dex => seller	경매 낙찰금액 받음(MRC402)
 			jobType = "receive_mrc402auction"
-		case "mrc402_recv_refund": // dex=>refund	입찰 대금 환불(MRC010)
+		case "mrc402_recv_refund": // dex=>refund	입찰 대금 환불(MRC402)
 			jobType = "receive_mrc402refund"
-		case "mrc402_recv_fee_creator": // dex => creator(MRC010)
+		case "mrc402_recv_fee_creator": // dex => creator(MRC402)
 			jobType = "receive_mrc402fee"
-		case "mrc402_recv_fee_platform": // dex => platform(MRC010)
+		case "mrc402_recv_fee_platform": // dex => platform(MRC402)
 			jobType = "receive_mrc402fee"
-		case "mrc402_recv_fee_shareholder": // dex => shareholder(MRC010)
+		case "mrc402_recv_fee_shareholder": // dex => shareholder(MRC402)
 			jobType = "receive_mrc402fee"
 		}
 

@@ -1710,25 +1710,6 @@ func Mrc402AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 	// get price info
 	buyNow, _ = decimal.NewFromString(dex.AuctionBuyNowPrice)
 	bidUnit, _ = decimal.NewFromString(dex.AuctionBiddingUnit)
-
-	if util.IsAddress(dex.AuctionCurrentBidder) {
-		oldBidPrice, _ = decimal.NewFromString(dex.AuctionCurrentPrice)
-		if newBidPrice.Sub(bidUnit).Cmp(oldBidPrice) < 0 {
-			return errors.New("3004,The bid amount must be greater than the current bid amount plus the bid unit")
-		}
-
-		refunderAddress = dex.AuctionCurrentBidder
-		// set payment info 2nd - Refund of previous bidder
-		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: refunderAddress,
-			Amount: dex.AuctionCurrentPrice, TokenID: dex.SellToken, PayType: "mrc402_recv_refund"})
-	} else {
-		oldBidPrice, _ = decimal.NewFromString(dex.AuctionStartPrice)
-		if newBidPrice.Cmp(oldBidPrice) < 0 {
-			return errors.New("3004,The bid amount must be equal to or greater than the starting price")
-		}
-		refunderAddress = ""
-	}
-
 	isBuynow = false
 	if !buyNow.IsZero() {
 		if newBidPrice.Cmp(buyNow) == 0 {
@@ -1742,6 +1723,26 @@ func Mrc402AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 		if dex.AuctionCurrentBidder == buyerAddress {
 			return errors.New("3004,You are already the highest bidder")
 		}
+	}
+
+	if util.IsAddress(dex.AuctionCurrentBidder) {
+		oldBidPrice, _ = decimal.NewFromString(dex.AuctionCurrentPrice)
+		if !isBuynow {
+			if newBidPrice.Sub(bidUnit).Cmp(oldBidPrice) < 0 {
+				return errors.New("3004,The bid amount must be greater than the current bid amount plus the bid unit")
+			}
+		}
+
+		refunderAddress = dex.AuctionCurrentBidder
+		// set payment info 2nd - Refund of previous bidder
+		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: refunderAddress,
+			Amount: dex.AuctionCurrentPrice, TokenID: dex.SellToken, PayType: "mrc402_recv_refund"})
+	} else {
+		oldBidPrice, _ = decimal.NewFromString(dex.AuctionStartPrice)
+		if newBidPrice.Cmp(oldBidPrice) < 0 {
+			return errors.New("3004,The bid amount must be equal to or greater than the starting price")
+		}
+		refunderAddress = ""
 	}
 
 	// subtract auction bidding price

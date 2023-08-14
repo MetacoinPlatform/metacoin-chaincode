@@ -752,7 +752,6 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 	var err error
 	var sellerData mtc.TWallet
 	var now int64
-	var buf string
 	var MRC401SellData []TMRC401Sell
 	var MRC401 TMRC401
 	var MRC400 TMRC400
@@ -791,10 +790,6 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 
 		if MRC401, _, err = GetMRC401(stub, MRC401SellData[index].ItemID); err != nil {
 			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] - " + err.Error())
-		}
-
-		if err = json.Unmarshal([]byte(buf), &MRC401); err != nil {
-			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] is in the wrong data - " + err.Error())
 		}
 
 		if mrc400id != MRC401.MRC400 {
@@ -1242,10 +1237,6 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] - " + err.Error())
 		}
 
-		if err = json.Unmarshal([]byte(buffer), &MRC401ItemData); err != nil {
-			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is in the wrong data - " + err.Error())
-		}
-
 		if mrc400id != MRC401ItemData.MRC400 {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is not MRC400 " + mrc400id + " item")
 		}
@@ -1332,7 +1323,6 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData,
 func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, signature, tkey string, args []string) error {
 	var err error
 	var sellerWallet mtc.TWallet
-	var buffer string
 	var MRC401list []string
 	var MRC401ItemData TMRC401
 	var keyCheck map[string]int
@@ -1367,10 +1357,6 @@ func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemDat
 
 		if MRC401ItemData, _, err = GetMRC401(stub, MRC401list[index]); err != nil {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] - " + err.Error())
-		}
-
-		if err = json.Unmarshal([]byte(buffer), &MRC401ItemData); err != nil {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is in the wrong data")
 		}
 
 		if mrc400id != MRC401ItemData.MRC400 {

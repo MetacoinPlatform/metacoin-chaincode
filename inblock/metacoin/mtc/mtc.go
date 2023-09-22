@@ -106,11 +106,11 @@ type PricePair struct {
 type TDexPaymentInfo struct {
 	FromAddr    string `json:"from_addr"`
 	ToAddr      string `json:"to_addr"`
-	Amount      string `json:"amount"`
-	TokenID     string `json:"token"`
-	TradeAmount string `json:"trade_amount"`
-	TradeID     string `json:"trade_id"`
-	PayType     string `json:"type"`
+	Amount      string `json:"amount"`       // MRC010 Amount
+	TokenID     string `json:"token"`        // MRC010 ID
+	TradeAmount string `json:"trade_amount"` // NFT Amount
+	TradeID     string `json:"trade_id"`     // NFT ID
+	PayType     string `json:"type"`         // payment id
 }
 
 // TokenReserve token ico reserve

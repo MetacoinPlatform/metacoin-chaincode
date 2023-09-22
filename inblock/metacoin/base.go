@@ -135,7 +135,7 @@ func BalanceOf(stub shim.ChaincodeStubInterface, address string) (string, error)
 
 // DEX 수수료 처리
 func DexFeeCalc(
-	basePrice decimal.Decimal, commissionRate string, TokenID string) (decimal.Decimal, error) {
+	basePrice decimal.Decimal, commissionRate string) (decimal.Decimal, error) {
 
 	var err error
 	var cRate decimal.Decimal

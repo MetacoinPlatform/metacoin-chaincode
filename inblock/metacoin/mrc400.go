@@ -15,30 +15,106 @@ import (
 	"inblock/metacoin/util"
 )
 
+/*
+MRC400 변경사항
+
+- Allow_token(판매시 거래 가능한 토큰) 정책 변경
+  "0" 혹은 빈 값 : 메타코인만 허용 / 그외 : 메타코인과 지정된 토큰만 허용
+  =>   "0" 혹은 빈 값 : 모든 토큰 허용 / 그외 : 메타코인과 지정된 토큰만 허용
+
+- 파트너 추가("파트너" 명칭은 테스트넷 올라가기전까지 변경 가능합니다.)
+  파트너는 3가지로 구분됩니다.
+
+  partner : MRC401 생성, MRC401 업데이트, MRC401 생성하면서 판매, 성생후 거래/이체된적이 없는 MRC401 아이템의 판매/판매 취소, 경매/경매취소
+  seller : MRC401 생성하면서 판매, 성생후 거래/이체된적이 없는 MRC401 아이템의 판매/판매 취소, 경매/경매취소
+  creator : MRC401 생성, MRC401 업데이트
+
+
+MRC401 변경 사항
+- 한번에 최대 1024 개 를 생성할 수 있습니다.
+
+- 생성하면서 판매 기능 추가
+  MRC401 생성 + 거래체결이 합쳐진 프로토콜 입니다.
+
+- 거래플렛폼이 수수료를 가져갈 수 있도록 변경됩니다.
+
+- 최대 5명의 저작권자가 추가될 수 있습니다.
+  각각의 저작권자는 거래시 0.0001 ~ 10.000 % 의 수수료를 가져갈 수 있습니다.
+
+*/
+
+type MRC401ActionType int
+
+const (
+	MRC401AT_Buy = iota
+	MRC401AT_Sell
+	MRC401AT_UnSell
+	MRC401AT_Auction
+	MRC401AT_Bidding
+	MRC401AT_UnAuction
+	MRC401AT_Create
+	MRC401AT_Update
+	MRC401AT_CreateTrade
+	MRC401AT_Melt
+	MRC401AT_Transfer
+)
+
+type MRC401Status int
+
+const (
+	MRC401STATUS_NORMALE        = iota // not sale or auction
+	MRC401STATUS_SALE                  // sale
+	MRC401STATUS_AUCTION_WAIT          // wait for auction start
+	MRC401STATUS_AUCTION               // auction(biddable)
+	MRC401STATUS_AUCTION_END           // auction end
+	MRC401STATUS_AUCTION_FINISH        // auction finish
+)
+
 // TMRC400 for NFT Item project
 type TMRC400 struct {
-	Id           string `json:"id"` // MRC 402 ID
-	Owner        string `json:"owner"`
-	CreateDate   int64  `json:"createdate"` // read only
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	ImageURL     string `json:"image_url"`
-	Category     string `json:"category"`
-	Description  string `json:"description"`
+	Id         string `json:"id"`         // MRC 402 ID
+	CreateDate int64  `json:"createdate"` // read only
+	Owner      string `json:"owner"`
+	Name       string `json:"name"`
+	URL        string `json:"url"`
+	ImageURL   string `json:"image_url"`
+
+	// 2023. 9 policy change
+	AllowToken string `json:"allow_token"`
+
 	ItemURL      string `json:"item_url"`
 	ItemImageURL string `json:"item_image_url"`
-	Data         string `json:"data"`
-	AllowToken   string `json:"allow_token"`
-	JobType      string `json:"job_type"`
-	JobArgs      string `json:"job_args"`
-	JobDate      int64  `json:"jobdate"`
+	Category     string `json:"category"`
+	Description  string `json:"description"`
+
+	// add 2023. 9
+	SocialMedia string `json:"socialmedia"`
+	// 수정가능 - {"twitter" : "https:// ...",  "We Schedule" : "https://domain.com/path" }
+	// Icon with Description site : twitter, facebook, telegram,  instagram, youtube, tiktok, snapchat,
+	//                              discord, twitch, pinterest, linkedin, wechat, qq, douyin, weibo, github
+
+	// add 2023. 9
+	Partner map[string]string `json:"partner"`
+	// { MRC401 Create, Update, Sell Permission owner Address : Permission }
+	// Permission(MAX 10 address)
+	//	- partner : MRC401 create, MRC401 update, MRC401 create for trade, MRC401 first sell
+	//	- seller : MRC401 create for trade, MRC401 first sell
+	//	- creator : MRC401 create, MRC401 update
+	// ex :  { "MT123" : "partnet", "MT456" : "seller", "MT789" : "creator" }
+
+	Data string `json:"data"`
+
+	JobType string `json:"job_type"`
+	JobArgs string `json:"job_args"`
+	JobDate int64  `json:"jobdate"`
 }
 
 // TMRC401 for NFT ITEM
 type TMRC401 struct {
-	Id                   string `json:"id"`              // MRC 402 ID
+	Id                   string `json:"id"`              // MRC401 ID
 	MRC400               string `json:"mrc400"`          // MRC400 ID
 	Owner                string `json:"owner"`           // 소유자
+	Creator              string `json:"creator"`         // 생성자
 	ItemURL              string `json:"item_url"`        // item description URL
 	ItemImageURL         string `json:"item_image_url"`  // image url
 	GroupID              string `json:"groupid"`         // group id
@@ -66,106 +142,263 @@ type TMRC401 struct {
 	LastTradeDate        int64  `json:"last_trade_date"`        // last buy or auction finish date
 	LastTradeAmount      string `json:"last_trade_amount"`      // last buy or auction finish amount
 	LastTradeToken       string `json:"last_trade_token"`       // last buy or auction finish token
-	LastTradeType        string `json:"last_trade_type"`        // "Auction" or "Sell"
+	LastTradeType        string `json:"last_trade_type"`        // "Auction" or "Sell" or "Transfer"
+	LastWorker           string `json:"last_worker"`            // last sell, auction, creator, unsell, unauction
+	// add 2023. 9
+	ShareHolder        map[string]string `json:"shareholder"`   // { 저작권자 주소 : 판매/경매시 해당 주소가 가져가는 수수료 (0~10%)}, 최대 5명
+	PlatformName       string            `json:"platform_name"` // 플렛폼 이름
+	PlatformURL        string            `json:"platform_url"`
+	PlatformAddress    string            `json:"platform_address"`    // 판매/경매시 수수료를 받을 플렛폼 주소
+	PlatformCommission string            `json:"platform_commission"` // 판매/경매시 수수료를 받을 플렛폼가 가져가는 수수료 (0~10%)
 }
 
-// TMRC401job for NFT ITEM create
-type TMRC401job struct {
+// for NFT ITEM create
+type TMRC401CreateUpdate struct {
 	MRC400          string `json:"mrc400"`          // MRC400 ID
 	ItemID          string `json:"item_id"`         // MRC401 Item ID
 	ItemURL         string `json:"item_url"`        // item description URL
 	ItemImageURL    string `json:"item_image_url"`  // image url
 	GroupID         string `json:"groupid"`         // group id
-	CreateDate      int64  `json:"createdate"`      // read only
 	InititalReserve string `json:"initial_reserve"` // 초기 판매 금액
 	InititalToken   string `json:"initial_token"`   // 초기 판매 토큰
 	MeltingFee      string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
 	Transferable    string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
 	SellFee         string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
+	// add 2023. 9
+	ShareHolder map[string]string `json:"shareholder"` // { 저작권자 주소 : 판매/경매시 해당 주소가 가져가는 수수료 (0~10%)}, 최대 5명
 }
 
 // TMRC401Sell for NFT ITEM sell
 type TMRC401Sell struct {
-	ItemID    string `json:"id"` // MRC401 Item ID
-	SellPrice string `json:"amount"`
-	SellToken string `json:"token"` // read only 이체 수수료 비율(0.0001~ 99.9999%)
+	ItemID             string `json:"id"` // MRC401 Item ID
+	SellPrice          string `json:"amount"`
+	SellToken          string `json:"token"`         // read only 이체 수수료 비율(0.0001~ 99.9999%)
+	PlatformName       string `json:"platform_name"` // 플렛폼 이름
+	PlatformURL        string `json:"platform_url"`
+	PlatformAddress    string `json:"platform_address"`    // 판매/경매시 수수료를 받을 플렛폼 주소
+	PlatformCommission string `json:"platform_commission"` // 판매/경매시 수수료를 받을 플렛폼가 가져가는 수수료 (0~10%)
 }
 
 // TMRC401Auction for NFT ITEM auction
 type TMRC401Auction struct {
-	ItemID             string `json:"id"`      // MRC401 Item ID
-	AuctionEnd         int64  `json:"end"`     // 경매 종료 일시
-	AuctionToken       string `json:"token"`   // 경매 가능 토큰
-	AuctionBiddingUnit string `json:"bidding"` // 경매 입찰 단위
-	AuctionStartPrice  string `json:"start"`   // 경매 시작 금액
-	AuctionBuyNowPrice string `json:"buynow"`  // 경매 즉시 구매 금액
+	ItemID             string `json:"id"`            // MRC401 Item ID
+	AuctionEnd         int64  `json:"end"`           // 경매 종료 일시
+	AuctionToken       string `json:"token"`         // 경매 가능 토큰
+	AuctionBiddingUnit string `json:"bidding"`       // 경매 입찰 단위
+	AuctionStartPrice  string `json:"start"`         // 경매 시작 금액
+	AuctionBuyNowPrice string `json:"buynow"`        // 경매 즉시 구매 금액
+	PlatformName       string `json:"platform_name"` // 플렛폼 이름
+	PlatformURL        string `json:"platform_url"`
+	PlatformAddress    string `json:"platform_address"`    // 판매/경매시 수수료를 받을 플렛폼 주소
+	PlatformCommission string `json:"platform_commission"` // 판매/경매시 수수료를 받을 플렛폼가 가져가는 수수료 (0~10%)
+}
+
+/* Sell, Auction :
+- actor is mrc401 owner
+- actor is mrc400 partner/seller and mrc401 owner is mrc400 owner and `LastTradeType` is empty.
+
+UnSell, UnAuction:
+- actor is mrc401 owner
+- actor is mrc400 partner/seller and mrc401 owner is mrc400 owner and lastworker
+
+Create
+- actor is mrc400 owner
+- actor is mrc400 partner/creator
+
+Update
+- actor is mrc400 owner
+- actor is mrc400 partner/creator and mrc401 creator
+
+MRC401AT_CreateTrade
+- actor is mrc400 owner
+- actor is mrc400 partner/seller
+*/
+
+func Mrc401PermissionCheck(MRC400 TMRC400, MRC401 TMRC401, actor string, action MRC401ActionType) error {
+	var permission string
+	var isPartner bool
+
+	if !util.IsAddress(actor) {
+		return errors.New("1002," + actor + " is not Metacoin address")
+	}
+	// owner
+	switch action {
+	case MRC401AT_Transfer, MRC401AT_Melt:
+		if MRC401.Owner == actor {
+			return nil
+		} else {
+			return errors.New("3004,MRC401 [" + MRC401.Id + "] is not your item")
+		}
+	case MRC401AT_Sell, MRC401AT_UnSell, MRC401AT_Auction, MRC401AT_UnAuction:
+		if MRC401.Owner == actor {
+			return nil
+		} else if MRC401.Owner != MRC400.Owner {
+			fmt.Println("=========================================")
+			fmt.Println("LINE 236")
+			fmt.Println("MRC400", MRC400)
+			fmt.Println("MRC401", MRC401)
+			return errors.New("3004,MRC401 [" + MRC401.Id + "] is not your item")
+		}
+	case MRC401AT_Create, MRC401AT_Update, MRC401AT_CreateTrade:
+		if actor == MRC400.Owner {
+			return nil
+		}
+	}
+
+	if permission, isPartner = MRC400.Partner[actor]; isPartner == false {
+		return errors.New("3007,MRC401 unsell or unauction is only available to MRC400 partner")
+	}
+	switch action {
+	case MRC401AT_Sell, MRC401AT_Auction:
+		if permission != "partner" && permission != "seller" {
+			return errors.New("3007,MRC401 [" + MRC401.Id + "] sell or auction is only available to MRC400 partner or seller")
+		}
+	case MRC401AT_UnSell, MRC401AT_UnAuction:
+		if permission != "partner" && permission != "seller" {
+			return errors.New("3007,MRC401 [" + MRC401.Id + "] unsell or unauction is only available to MRC400 partner or seller")
+		}
+		if MRC401.LastWorker != actor {
+			return errors.New("3007,MRC401 [" + MRC401.Id + "] unsell or unauction is only available to last worker")
+		}
+
+	case MRC401AT_Create:
+		if permission != "partner" && permission != "creator" {
+			return errors.New("3007,MRC401 creation is only available to MRC400 partner or creator")
+		}
+	case MRC401AT_Update:
+		if permission != "partner" && permission != "creator" {
+			return errors.New("3007,MRC401 update is only available to MRC400 partner or creator")
+		}
+		if MRC401.Creator != actor {
+			return errors.New("3007,MRC401 [" + MRC401.Id + "] update is only available to creator")
+		}
+
+	case MRC401AT_CreateTrade:
+		if permission != "seller" && permission != "partner" {
+			return errors.New("3007,MRC401 creation is only available to MRC400 partner or creator")
+		}
+	}
+	return nil
 }
 
 // Mrc400Create create MRC400 Item
-func Mrc400Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, allowtoken, category, description, itemurl, itemimageurl, data, signature, tkey string, args []string) error {
+func Mrc400Create(stub shim.ChaincodeStubInterface, args []string) (string, error) {
 	var err error
-	var ownerWallet mtc.TWallet
-	var mrc400id string
-	var MRC400ProjectData TMRC400
+	var MRC400Creator mtc.TWallet
+	var MRC400 TMRC400
 	var argdat []byte
 
-	MRC400ProjectData = TMRC400{
+	if len(args) < 14 {
+		return "", errors.New("1000,mrc400create operation must include four arguments : " +
+			"owner, name, url, imageurl, allowtoken, " +
+			"itemurl, itemimageurl, category, description, socialmedia, " +
+			"partner, data, sign, nonce")
+	}
+	MRC400 = TMRC400{
 		CreateDate: time.Now().Unix(),
+		AllowToken: "0",
 	}
 
-	if err = util.DataAssign(owner, &MRC400ProjectData.Owner, "address", 40, 40, false); err != nil {
-		return errors.New("3005,Data must be 1 to 4096 characters long")
-	}
-	if err = util.DataAssign(name, &MRC400ProjectData.Name, "string", 1, 128, false); err != nil {
-		return errors.New("3005,Name must be 1 to 128 characters long")
-	}
-	if err = util.DataAssign(url, &MRC400ProjectData.URL, "string", 1, 1024, false); err != nil {
-		return errors.New("3005,Url must be 1 to 1024 characters long URL")
-	}
-	if err = util.DataAssign(imageurl, &MRC400ProjectData.ImageURL, "url", 1, 256, false); err != nil {
-		return errors.New("3005,ImageURL must be 1 to 1024 characters long URL")
-	}
-	if err = util.DataAssign(category, &MRC400ProjectData.Category, "string", 1, 64, false); err != nil {
-		return errors.New("3005,Category must be 1 to 64 characters long")
-	}
-	if err = util.DataAssign(description, &MRC400ProjectData.Description, "string", 1, 4096, false); err != nil {
-		return errors.New("3005,Description must be 1 to 4096 characters long")
-	}
-	if err = util.DataAssign(itemurl, &MRC400ProjectData.ItemURL, "url", 1, 256, false); err != nil {
-		return errors.New("3005,ItemURL must be 1 to 1024 characters long URL")
-	}
-	if err = util.DataAssign(itemimageurl, &MRC400ProjectData.ItemImageURL, "url", 1, 256, false); err != nil {
-		return errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
-	}
-	if err = util.DataAssign(allowtoken, &MRC400ProjectData.AllowToken, "string", 1, 128, false); err != nil {
-		return errors.New("3005,AllowToken must be 1 to 128 characters long")
-	}
-	if err = util.DataAssign(data, &MRC400ProjectData.Data, "string", 0, 4096, false); err != nil {
-		return errors.New("3005,Data must be 0 to 4096 characters long")
+	if MRC400Creator, err = GetAddressInfo(stub, args[0]); err != nil {
+		return "", err
 	}
 
-	// allow token error
-	if _, _, err = GetMRC010(stub, allowtoken); err != nil {
-		return errors.New("3005,Token id " + allowtoken + " error : " + err.Error())
+	if err = NonceCheck(&MRC400Creator, args[13],
+		strings.Join([]string{args[0], args[1], args[2], args[3], args[7],
+			args[5], args[6], args[10], args[11], args[13]}, "|"),
+		args[12]); err != nil {
+		return "", err
 	}
 
-	if ownerWallet, err = GetAddressInfo(stub, owner); err != nil {
-		return err
+	// 0 owner
+	if err = util.DataAssign(args[0], &MRC400.Owner, "address", 40, 40, false); err != nil {
+		return "", errors.New("3005,Data must be 1 to 4096 characters long")
 	}
 
-	if err = NonceCheck(&ownerWallet, tkey,
-		strings.Join([]string{owner, name, url, imageurl, category, itemurl, itemimageurl, data, tkey}, "|"),
-		signature); err != nil {
-		return err
+	// 1 name
+	if err = util.DataAssign(args[1], &MRC400.Name, "string", 1, 128, false); err != nil {
+		return "", errors.New("3005,Name must be 1 to 128 characters long")
+	}
+
+	// 2 url
+	if err = util.DataAssign(args[2], &MRC400.URL, "url", 1, 1024, false); err != nil {
+		return "", errors.New("3005,Url must be 1 to 1024 characters long URL")
+	}
+
+	// 3 image url
+	if err = util.DataAssign(args[3], &MRC400.ImageURL, "url", 1, 255, false); err != nil {
+		return "", errors.New("3005,ImageURL must be 1 to 1024 characters long URL")
+	}
+
+	// 4 allow token
+	if args[4] != "" {
+		if _, _, err = GetMRC010(stub, args[4]); err != nil {
+			return "", errors.New("3005,Token id " + args[4] + " error : " + err.Error())
+		}
+		if err = util.DataAssign(args[4], &MRC400.AllowToken, "string", 1, 128, false); err != nil {
+			return "", errors.New("3005,AllowToken must be 1 to 128 characters long")
+		}
+	}
+
+	// 5 item data url
+	if err = util.DataAssign(args[5], &MRC400.ItemURL, "url", 1, 255, true); err != nil {
+		return "", errors.New("3005,ItemURL must be 1 to 1024 characters long URL")
+	}
+
+	// 6 item image url
+	if err = util.DataAssign(args[6], &MRC400.ItemImageURL, "url", 1, 255, true); err != nil {
+		return "", errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
+	}
+
+	// 7 category
+	if err = util.DataAssign(args[7], &MRC400.Category, "string", 1, 64, true); err != nil {
+		return "", errors.New("3005,Category must be 1 to 64 characters long")
+	}
+
+	// 8 description
+	if err = util.DataAssign(args[8], &MRC400.Description, "string", 1, 40960, true); err != nil {
+		return "", errors.New("3005,Description must be 1 to 40960 characters long")
+	}
+
+	// 9 social media
+	if err = util.DataAssign(args[9], &MRC400.SocialMedia, "string", 0, 40960, true); err != nil {
+		return "", errors.New("3005,SocialMedia must be 0 to 40960 characters long")
+	}
+
+	// 10 partner
+	if args[10] != "" {
+		if err = json.Unmarshal([]byte(args[10]), &MRC400.Partner); err != nil {
+			return "", errors.New("3005,partner data value error : " + err.Error())
+		}
+		if len(MRC400.Partner) > 64 {
+			return "", errors.New("3002,There must be 64 or fewer partner")
+		}
+		index := 0
+		for partner_address, partner_permission := range MRC400.Partner {
+			if _, err = GetAddressInfo(stub, partner_address); err != nil {
+				return "", errors.New("3005," + util.GetOrdNumber(index) + " partner item error : " + err.Error())
+			}
+			switch partner_permission {
+			case "partner", "seller", "creator":
+				index++
+			default:
+				return "", errors.New("3005," + util.GetOrdNumber(index) + " partner item permission is partner or seller or creator")
+			}
+		}
+	}
+
+	// 11 data
+	if err = util.DataAssign(args[11], &MRC400.Data, "string", 0, 40960, false); err != nil {
+		return "", errors.New("3005,Data must be 0 to 40960 characters long")
 	}
 
 	var isSuccess = false
-	temp := util.GenerateKey("MRC400_", []string{owner, name, url, imageurl, category, itemurl, itemimageurl, data, tkey})
+	temp := util.GenerateKey("MRC400_", args)
 	for i := 0; i < 10; i++ {
-		mrc400id = fmt.Sprintf("%39s%1d", temp, i)
-		argdat, err = stub.GetState(mrc400id)
+		MRC400.Id = fmt.Sprintf("%39s%1d", temp, i)
+		argdat, err = stub.GetState(MRC400.Id)
 		if err != nil {
-			return errors.New("8600,Hyperledger internal error - " + err.Error())
+			return "", errors.New("8600,Hyperledger internal error - " + err.Error())
 		}
 
 		if argdat != nil { // key already exists
@@ -177,95 +410,144 @@ func Mrc400Create(stub shim.ChaincodeStubInterface, owner, name, url, imageurl, 
 	}
 
 	if !isSuccess {
-		return errors.New("3005,Data generate error, retry again")
+		return "", errors.New("3005,Data generate error, retry again")
 	}
 
-	MRC400ProjectData.JobType = "mrc400_create"
-	MRC400ProjectData.JobDate = time.Now().Unix()
-	if argdat, err = json.Marshal([]string{mrc400id, owner, name, url, imageurl, allowtoken, category, description, itemurl, itemimageurl, data, signature, tkey}); err == nil {
-		MRC400ProjectData.JobArgs = string(argdat)
-	}
-	if argdat, err = json.Marshal(MRC400ProjectData); err != nil {
-		return errors.New("3209,Invalid mrc400 data format")
-	}
-	if err := stub.PutState(mrc400id, argdat); err != nil {
-		return errors.New("8600,Hyperledger internal error - " + err.Error() + mrc400id)
+	if err = setMRC400(stub, MRC400, "mrc400_create", []string{MRC400.Id,
+		args[0], args[1], args[2], args[3], args[4],
+		args[5], args[6], args[7], args[8], args[9],
+		args[10], args[11], args[12], args[13]}); err != nil {
+		return "", err
 	}
 
-	if err = SetAddressInfo(stub, ownerWallet, "mrc400create", []string{mrc400id, owner, name, url, imageurl, allowtoken, category, description, itemurl, itemimageurl, data, signature, tkey}); err != nil {
-		return err
+	if err = SetAddressInfo(stub, MRC400Creator, "mrc400create",
+		[]string{MRC400.Id, args[0], args[1], args[2], args[3], args[4],
+			args[5], args[6], args[7], args[8], args[9],
+			args[10], args[11], args[12], args[13]}); err != nil {
+		return "", err
 	}
-	return nil
+	return MRC400.Id, nil
 }
 
 // Mrc400Update for MTC110 token update.
-func Mrc400Update(stub shim.ChaincodeStubInterface, mrc400id, name, url, imageurl, allowtoken, category, description, itemurl, itemimageurl, data, signature, tkey string, args []string) error {
+func Mrc400Update(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
-	var ownerWallet mtc.TWallet
+	var MRC400Creator mtc.TWallet
 	var MRC400 TMRC400
-	var argdat []byte
+	if len(args) < 14 {
+		return errors.New("1000,mrc400update operation must include four arguments : " +
+			"mrc400id, name, url, imageurl, allowtoken, " +
+			"itemurl, itemimageurl, category, description, socialmedia, " +
+			"partner, data, signature, nonce")
+	}
 
-	if MRC400, _, err = GetMRC400(stub, mrc400id); err != nil {
+	if MRC400, _, err = GetMRC400(stub, args[0]); err != nil {
 		return err
 	}
 
-	if err = util.DataAssign(name, &MRC400.Name, "string", 1, 128, true); err != nil {
+	if MRC400Creator, err = GetAddressInfo(stub, MRC400.Owner); err != nil {
+		return err
+	}
+
+	if err = NonceCheck(&MRC400Creator, args[13],
+		// mrc400id, name, url, imageurl, category
+		// itemurl, itemimageurl, partner, data
+		strings.Join([]string{args[0], args[1], args[2], args[3], args[7],
+			args[5], args[6], args[10], args[11], args[13]}, "|"),
+		args[12]); err != nil {
+		return err
+	}
+
+	// 1 name
+	if err = util.DataAssign(args[1], &MRC400.Name, "string", 1, 128, false); err != nil {
 		return errors.New("3005,Name must be 1 to 128 characters long")
 	}
-	if err = util.DataAssign(url, &MRC400.URL, "url", 1, 255, true); err != nil {
+
+	// 2 url
+	if err = util.DataAssign(args[2], &MRC400.URL, "url", 1, 1024, false); err != nil {
 		return errors.New("3005,Url must be 1 to 1024 characters long URL")
 	}
-	if err = util.DataAssign(imageurl, &MRC400.ImageURL, "url", 1, 255, true); err != nil {
+
+	// 3 image url
+	if err = util.DataAssign(args[3], &MRC400.ImageURL, "url", 1, 255, false); err != nil {
 		return errors.New("3005,ImageURL must be 1 to 1024 characters long URL")
 	}
-	if err = util.DataAssign(category, &MRC400.Category, "string", 1, 64, true); err != nil {
-		return errors.New("3005,Category must be 1 to 64 characters long")
+
+	// 4 allow token
+	if args[4] != "" {
+		if _, _, err = GetMRC010(stub, args[4]); err != nil {
+			return errors.New("3005,Token id " + args[4] + " error : " + err.Error())
+		}
+		if err = util.DataAssign(args[4], &MRC400.AllowToken, "string", 1, 128, false); err != nil {
+			return errors.New("3005,AllowToken must be 1 to 128 characters long")
+		}
+	} else {
+		MRC400.AllowToken = ""
 	}
-	if err = util.DataAssign(description, &MRC400.Description, "string", 1, 4096, true); err != nil {
-		return errors.New("3005,Description must be 1 to 4096 characters long")
-	}
-	if err = util.DataAssign(itemurl, &MRC400.ItemURL, "url", 1, 255, true); err != nil {
+
+	// 5 item data url
+	if err = util.DataAssign(args[5], &MRC400.ItemURL, "url", 1, 255, false); err != nil {
 		return errors.New("3005,ItemURL must be 1 to 1024 characters long URL")
 	}
-	if err = util.DataAssign(itemimageurl, &MRC400.ItemImageURL, "url", 1, 255, true); err != nil {
+
+	// 6 item image url
+	if err = util.DataAssign(args[6], &MRC400.ItemImageURL, "url", 1, 255, false); err != nil {
 		return errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
 	}
-	if err = util.DataAssign(allowtoken, &MRC400.AllowToken, "string", 1, 128, false); err != nil {
-		return errors.New("3005,AllowToken must be 1 to 128 characters long")
-	}
-	if err = util.DataAssign(data, &MRC400.Data, "string", 1, 4096, true); err != nil {
-		return errors.New("3005,Data must be 1 to 4096 characters long")
+
+	// 7 category
+	if err = util.DataAssign(args[7], &MRC400.Category, "string", 1, 64, false); err != nil {
+		return errors.New("3005,Category must be 1 to 64 characters long")
 	}
 
-	// allow token error
-	if _, _, err = GetMRC010(stub, allowtoken); err != nil {
-		return errors.New("3005,Token id " + allowtoken + " error : " + err.Error())
+	// 8 description
+	if err = util.DataAssign(args[8], &MRC400.Description, "string", 1, 40960, false); err != nil {
+		return errors.New("3005,Description must be 1 to 40960 characters long")
 	}
 
-	if ownerWallet, err = GetAddressInfo(stub, MRC400.Owner); err != nil {
+	// 9 social media
+	if err = util.DataAssign(args[9], &MRC400.SocialMedia, "string", 0, 40960, false); err != nil {
+		return errors.New("3005,SocialMedia must be 0 to 40960 characters long")
+	}
+
+	// 10 partner
+	if args[10] != "" {
+		if err = json.Unmarshal([]byte(args[10]), &MRC400.Partner); err != nil {
+			return errors.New("3005,partner data value error : " + err.Error())
+		}
+		if len(MRC400.Partner) > 64 {
+			return errors.New("3002,There must be 64 or fewer partner")
+		}
+		index := 0
+		for partner_address, partner_permission := range MRC400.Partner {
+			if _, err = GetAddressInfo(stub, partner_address); err != nil {
+				return errors.New("3005," + util.GetOrdNumber(index) + " partner item error : " + err.Error())
+			}
+			switch partner_permission {
+			case "partner", "seller", "creator":
+				index++
+			default:
+				return errors.New("3005," + util.GetOrdNumber(index) + " partner item permission is partner or seller or creator")
+			}
+		}
+	}
+
+	// 11 data
+	if err = util.DataAssign(args[11], &MRC400.Data, "string", 0, 40960, false); err != nil {
+		return errors.New("3005,Data must be 0 to 40960 characters long")
+	}
+
+	if err = setMRC400(stub, MRC400, "mrc400_update", []string{MRC400.Id,
+		args[0], args[1], args[2], args[3], args[4],
+		args[5], args[6], args[7], args[8], args[9],
+		args[10], args[11], args[12], args[13]}); err != nil {
 		return err
 	}
 
-	if err = NonceCheck(&ownerWallet, tkey,
-		strings.Join([]string{mrc400id, name, url, imageurl, category, description, itemurl, itemimageurl, data, tkey}, "|"),
-		signature); err != nil {
-		return err
-	}
-
-	MRC400.JobType = "mrc400_update"
-	MRC400.JobDate = time.Now().Unix()
-	if argdat, err = json.Marshal([]string{mrc400id, MRC400.Owner, name, url, imageurl, allowtoken, category, description, itemurl, itemimageurl, data, signature, tkey}); err == nil {
-		MRC400.JobArgs = string(argdat)
-	}
-
-	if argdat, err = json.Marshal(MRC400); err != nil {
-		return errors.New("3209,Invalid address data format")
-	}
-	if err := stub.PutState(mrc400id, argdat); err != nil {
-		return errors.New("8600,Hyperledger internal error - " + err.Error() + mrc400id)
-	}
-
-	if err = SetAddressInfo(stub, ownerWallet, "mrc400update", []string{mrc400id, MRC400.Owner, name, url, imageurl, allowtoken, category, description, itemurl, itemimageurl, data, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, MRC400Creator, "mrc400update", []string{MRC400.Id,
+		args[0], args[1], args[2], args[3], args[4],
+		args[5], args[6], args[7], args[8], args[9],
+		args[10], args[11], args[12], args[13]}); err != nil {
 		return err
 	}
 	return nil
@@ -344,15 +626,23 @@ func GetMRC401(stub shim.ChaincodeStubInterface, mrc401id string) (TMRC401, []by
 	if mrc401.Id == "" {
 		mrc401.Id = mrc401id
 	}
+
 	return mrc401, dat, nil
 }
 
-func setMRC401(stub shim.ChaincodeStubInterface, mrc401id string, MRC401 TMRC401, jobType string, jobArgs []string) error {
+func setMRC401(stub shim.ChaincodeStubInterface, MRC401 TMRC401, jobType string, jobArgs []string) error {
 	var err error
 	var argdat []byte
 
-	if strings.Index(mrc401id, "MRC400_") != 0 || len(mrc401id) != 81 {
+	if strings.Index(MRC401.Id, "MRC400_") != 0 || len(MRC401.Id) != 81 {
 		return errors.New("6102,invalid MRC401 data address")
+	}
+
+	if len(MRC401.MRC400) != 40 {
+		return errors.New("6102,invalid MRC401 ID")
+	}
+	if strings.Index(MRC401.Id, MRC401.MRC400) != 0 {
+		return errors.New("6102,invalid MRC401 ID")
 	}
 
 	MRC401.JobType = jobType
@@ -365,75 +655,86 @@ func setMRC401(stub shim.ChaincodeStubInterface, mrc401id string, MRC401 TMRC401
 		return errors.New("3209,Invalid MRC401ItemData data format")
 	}
 
-	if err := stub.PutState(mrc401id, argdat); err != nil {
-		return errors.New("8600,Mrc401Create stub.PutState [" + mrc401id + "] Error " + err.Error())
+	if err := stub.PutState(MRC401.Id, argdat); err != nil {
+		return errors.New("8600,Mrc401Create stub.PutState [" + MRC401.Id + "] Error " + err.Error())
 	}
 	return nil
 }
 
 // Mrc401Create MRC401 create
-func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signature, tkey string, args []string) error {
+func Mrc401Create(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
-	var projectOwnerWallet mtc.TWallet
+	var MRC401Creator mtc.TWallet
 	var now int64
 	var MRC400 TMRC400
 	var createTotal map[string]decimal.Decimal
 	var tempPrice decimal.Decimal
-	var MRC401Job []TMRC401job
+	var MRC401JobList []TMRC401CreateUpdate
 	var MRC401ItemData TMRC401
 	var data []byte
+	var buf string
 	var logData []TMRC401Sell
 	var keyCheck map[string]int
+	var MRC401 TMRC401
+
+	if len(args) < 5 {
+		return errors.New("1000,mrc401create operation must include four arguments : " +
+			"mrc400id, creator, itemData, signature, nonce")
+	}
 
 	// get project(mrc400)
-	if MRC400, _, err = GetMRC400(stub, mrc400id); err != nil {
+	if MRC400, _, err = GetMRC400(stub, args[0]); err != nil {
 		return err
 	}
 
-	// get project owner
-	if projectOwnerWallet, err = GetAddressInfo(stub, MRC400.Owner); err != nil {
+	// permission check
+	if err = Mrc401PermissionCheck(MRC400, MRC401, args[1], MRC401AT_Create); err != nil {
 		return err
 	}
+
+	if MRC401Creator, err = GetAddressInfo(stub, args[1]); err != nil {
+		return err
+	}
+
 	// sign check
-	if err = NonceCheck(&projectOwnerWallet, tkey,
-		strings.Join([]string{mrc400id, itemData, tkey}, "|"),
-		signature); err != nil {
+	if err = NonceCheck(&MRC401Creator, args[4],
+		strings.Join([]string{args[0], args[2], args[4]}, "|"),
+		args[3]); err != nil {
 		return err
 	}
 
-	if err = json.Unmarshal([]byte(itemData), &MRC401Job); err != nil {
+	if err = json.Unmarshal([]byte(args[2]), &MRC401JobList); err != nil {
 		return errors.New("6205,MRC401 Data is in the wrong data - " + err.Error())
 	}
-	if len(MRC401Job) > 100 {
-		return errors.New("3002,There must be 100 or fewer create item")
+	if len(MRC401JobList) > 1024 {
+		return errors.New("3002,There must be 1024 or fewer create item")
 	}
-	if len(MRC401Job) < 1 {
+	if len(MRC401JobList) < 1 {
 		return errors.New("3002,There is no item information")
 	}
 	createTotal = make(map[string]decimal.Decimal)
 	now = time.Now().Unix()
-	logData = make([]TMRC401Sell, 0, len(MRC401Job))
 	keyCheck = make(map[string]int)
+	for index := range MRC401JobList {
 
-	for index := range MRC401Job {
-
-		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists {
-			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
+		if _, exists := keyCheck[MRC401JobList[index].ItemID]; exists {
+			return errors.New("3004,MRC401 [" + MRC401JobList[index].ItemID + "] is duplicate")
 		}
-		keyCheck[MRC401Job[index].ItemID] = 0
+		keyCheck[MRC401JobList[index].ItemID] = 0
 
-		data, err = stub.GetState(mrc400id + "_" + MRC401Job[index].ItemID)
+		data, err = stub.GetState(MRC400.Id + "_" + MRC401JobList[index].ItemID)
 		if err != nil {
 			return errors.New("8600,Hyperledger internal error - " + err.Error())
 		}
 
 		if data != nil {
-			return errors.New("8600,Item ID " + MRC401Job[index].ItemID + " already exists in project " + mrc400id)
+			return errors.New("8600,Item ID " + MRC401JobList[index].ItemID + " already exists in project " + MRC400.Id)
 		}
 
 		// init data
 		MRC401ItemData = TMRC401{
-			MRC400:               mrc400id,
+			Id:                   MRC400.Id + "_" + MRC401JobList[index].ItemID,
+			MRC400:               MRC400.Id,
 			Owner:                MRC400.Owner,
 			ItemURL:              "",
 			ItemImageURL:         "",
@@ -463,38 +764,44 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 			LastTradeAmount:      "0",
 			LastTradeToken:       "0",
 			LastTradeType:        "",
+			Creator:              MRC401Creator.Id,
+			ShareHolder:          nil,
+			PlatformName:         "",
+			PlatformURL:          "",
+			PlatformAddress:      "",
+			PlatformCommission:   "",
 		}
 
 		// param check
-		if err = util.DataAssign(MRC401Job[index].ItemID, &MRC401Job[index].ItemID, "id", 40, 40, false); err != nil {
+		if err = util.DataAssign(MRC401JobList[index].ItemID, &MRC401JobList[index].ItemID, "id", 40, 40, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item ItemID error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].ItemURL, &MRC401ItemData.ItemURL, "url", 1, 255, true); err != nil {
+		if err = util.DataAssign(MRC401JobList[index].ItemURL, &MRC401ItemData.ItemURL, "url", 1, 255, true); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item ItemURL error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].ItemImageURL, &MRC401ItemData.ItemImageURL, "url", 1, 255, true); err != nil {
+		if err = util.DataAssign(MRC401JobList[index].ItemImageURL, &MRC401ItemData.ItemImageURL, "url", 1, 255, true); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item ItemImageURL error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].GroupID, &MRC401ItemData.GroupID, "string", 1, 40, false); err != nil {
+		if err = util.DataAssign(MRC401JobList[index].GroupID, &MRC401ItemData.GroupID, "string", 1, 40, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item GroupID error : " + err.Error())
 		}
 
-		if err = util.NumericDataCheck(MRC401Job[index].InititalReserve, &MRC401ItemData.InititalReserve, "0", "9999999999999999999999999999999999999999", 0, false); err != nil {
+		if err = util.NumericDataCheck(MRC401JobList[index].InititalReserve, &MRC401ItemData.InititalReserve, "0", "9999999999999999999999999999999999999999", 0, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item InititalReserve error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].InititalToken, &MRC401ItemData.InititalToken, "string", 1, 40, false); err != nil {
+		if err = util.DataAssign(MRC401JobList[index].InititalToken, &MRC401ItemData.InititalToken, "string", 1, 40, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item InititalToken error : " + err.Error())
 		}
 
-		if err = util.NumericDataCheck(MRC401Job[index].MeltingFee, &MRC401ItemData.MeltingFee, "0", "99.9999", 4, false); err != nil {
+		if err = util.NumericDataCheck(MRC401JobList[index].MeltingFee, &MRC401ItemData.MeltingFee, "0", "99.9999", 4, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item MeltingFee error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401ItemData.Transferable, "string", 1, 128, false); err != nil {
+		if err = util.DataAssign(MRC401JobList[index].Transferable, &MRC401ItemData.Transferable, "string", 1, 128, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item Transferable error : " + err.Error())
 		}
 
@@ -502,15 +809,12 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 			return errors.New("3005," + util.GetOrdNumber(index) + " item Transferable value is Permanent, Bound, Temprary ")
 		}
 
-		if err = util.NumericDataCheck(MRC401Job[index].SellFee, &MRC401ItemData.SellFee, "0", "99.9999", 4, false); err != nil {
+		if err = util.NumericDataCheck(MRC401JobList[index].SellFee, &MRC401ItemData.SellFee, "0", "99.9999", 4, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item SellFee error : " + err.Error())
 		}
 
 		// Initital token check
-		if MRC401ItemData.InititalToken != MRC400.AllowToken && MRC401ItemData.InititalToken != "0" {
-			if MRC400.AllowToken != "0" {
-				return errors.New("3005," + util.GetOrdNumber(index) + " item Token is must " + MRC400.AllowToken + " or metacoin")
-			}
+		if MRC400.AllowToken != "0" && MRC400.AllowToken != "" && MRC401ItemData.InititalToken != MRC400.AllowToken {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item Token is must " + MRC400.AllowToken)
 		}
 
@@ -521,18 +825,38 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 			createTotal[MRC401ItemData.InititalToken] = createTotal[MRC401ItemData.InititalToken].Add(tempPrice).Truncate(0)
 		}
 
-		if err = setMRC401(stub, mrc400id+"_"+MRC401Job[index].ItemID, MRC401ItemData, "mrc401_create", []string{mrc400id + "_" + MRC401Job[index].ItemID, MRC400.Owner, MRC401ItemData.InititalReserve, MRC401ItemData.InititalToken, signature, tkey}); err != nil {
+		if len(MRC401JobList[index].ShareHolder) > 0 {
+			if len(MRC401JobList[index].ShareHolder) > 5 {
+				return errors.New("3002,There must be 5 or fewer copyrighter")
+			}
+			index := 0
+			for shareholder, commission := range MRC401JobList[index].ShareHolder {
+				if shareholder == MRC400.Owner {
+					return errors.New("3005," + util.GetOrdNumber(index) + " item shareholder The owner's address and the copyright holder's address are the same")
+				}
+				if _, err = GetAddressInfo(stub, shareholder); err != nil {
+					return errors.New("3005," + util.GetOrdNumber(index) + " item shareholder error : " + err.Error())
+				}
+				if err = util.NumericDataCheck(commission, &buf, "0", "10.0", 2, false); err != nil {
+					return errors.New("3005," + util.GetOrdNumber(index) + " item shareholder commission error : " + err.Error())
+				}
+			}
+			MRC401ItemData.ShareHolder = MRC401JobList[index].ShareHolder
+		}
+
+		if err = setMRC401(stub, MRC401ItemData, "mrc401_create", []string{MRC401ItemData.Id,
+			args[1], MRC401ItemData.InititalReserve, MRC401ItemData.InititalToken, args[3], args[4]}); err != nil {
 			return err
 		}
 
 		// MRC401Sell for NFT ITEM sell
-		logData = append(logData, TMRC401Sell{ItemID: MRC401Job[index].ItemID, SellPrice: MRC401ItemData.InititalReserve, SellToken: MRC401ItemData.InititalToken})
+		logData = append(logData, TMRC401Sell{ItemID: MRC401JobList[index].ItemID, SellPrice: MRC401ItemData.InititalReserve, SellToken: MRC401ItemData.InititalToken})
 	}
 
 	// subtract token for item initial price
 	for token, totPrice := range createTotal {
 		if totPrice.IsPositive() {
-			if err = MRC010Subtract(stub, &projectOwnerWallet, token, totPrice.String(), MRC010MT_Normal); err != nil {
+			if err = MRC010Subtract(stub, &MRC401Creator, token, totPrice.String(), MRC010MT_Normal); err != nil {
 				return err
 			}
 		}
@@ -541,41 +865,48 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	// save create info
 	// - for update balance
 	// - for nonce update
-	if err = SetAddressInfo(stub, projectOwnerWallet, "mrc401create", []string{mrc400id, MRC400.Owner,
-		util.JSONEncode(logData), signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, MRC401Creator, "mrc401create", []string{MRC400.Id, args[1],
+		util.JSONEncode(logData), args[3], args[4]}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Mrc401Update MRC401 update
-func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signature, tkey string, args []string) error {
-	var err error
-	var projectOwnerWallet mtc.TWallet
+func Mrc401Update(stub shim.ChaincodeStubInterface, args []string) error {
 	var MRC400 TMRC400
-	var createTotal map[string]decimal.Decimal
-	var MRC401Job []TMRC401job
-	var MRC401ItemData TMRC401
+	var MRC400Partner mtc.TWallet
+	var MRC401 TMRC401
+	var MRC401Job []TMRC401CreateUpdate
 	var logData []string
+	var err error
+	var isCreator bool
 
 	var keyCheck map[string]int
 
+	if len(args) < 5 {
+		return errors.New("1000,mrc401update operation must include four arguments : " +
+			"mrc400id, updater, itemData, signature, nonce")
+	}
+
 	// get project(mrc400)
-	if MRC400, _, err = GetMRC400(stub, mrc400id); err != nil {
-		return err
-	}
-	// get project owner
-	if projectOwnerWallet, err = GetAddressInfo(stub, MRC400.Owner); err != nil {
-		return err
-	}
-	// sign check
-	if err = NonceCheck(&projectOwnerWallet, tkey,
-		strings.Join([]string{mrc400id, itemData, tkey}, "|"),
-		signature); err != nil {
+	if MRC400, _, err = GetMRC400(stub, args[0]); err != nil {
 		return err
 	}
 
-	if err = json.Unmarshal([]byte(itemData), &MRC401Job); err != nil {
+	// get updator
+	if MRC400Partner, err = GetAddressInfo(stub, args[1]); err != nil {
+		return err
+	}
+
+	// sign check
+	if err = NonceCheck(&MRC400Partner, args[4],
+		strings.Join([]string{args[0], args[2], args[4]}, "|"),
+		args[3]); err != nil {
+		return err
+	}
+
+	if err = json.Unmarshal([]byte(args[2]), &MRC401Job); err != nil {
 		return errors.New("6205,MRC401 Data is in the wrong data - " + err.Error())
 	}
 	if len(MRC401Job) > 100 {
@@ -586,95 +917,331 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, mrc400id, itemData, signatur
 	}
 
 	keyCheck = make(map[string]int)
-	logData = make([]string, 0, len(MRC401Job))
 	for index := range MRC401Job {
 		if _, exists := keyCheck[MRC401Job[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401Job[index].ItemID] = 0
 
-		if MRC401ItemData, _, err = GetMRC401(stub, mrc400id+"_"+MRC401Job[index].ItemID); err != nil {
+		if MRC401, _, err = GetMRC401(stub, MRC400.Id+"_"+MRC401Job[index].ItemID); err != nil {
+			return err
+		}
+		// permission check
+		if err = Mrc401PermissionCheck(MRC400, MRC401, args[1], MRC401AT_Update); err != nil {
 			return err
 		}
 
-		if err = util.DataAssign(MRC401Job[index].ItemURL, &MRC401ItemData.ItemURL, "url", 0, 255, false); err != nil {
+		if err = util.DataAssign(MRC401Job[index].ItemURL, &MRC401.ItemURL, "url", 0, 255, false); err != nil {
 			return errors.New("3005," + MRC401Job[index].ItemID + " item ItemURL error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].ItemImageURL, &MRC401ItemData.ItemImageURL, "url", 0, 255, false); err != nil {
+		if err = util.DataAssign(MRC401Job[index].ItemImageURL, &MRC401.ItemImageURL, "url", 0, 255, false); err != nil {
 			return errors.New("3005," + MRC401Job[index].ItemID + " item ItemImageURL error : " + err.Error())
 		}
 
-		if err = util.DataAssign(MRC401Job[index].GroupID, &MRC401ItemData.GroupID, "string", 0, 40, false); err != nil {
+		if err = util.DataAssign(MRC401Job[index].GroupID, &MRC401.GroupID, "string", 0, 40, false); err != nil {
 			return errors.New("3005," + MRC401Job[index].ItemID + " item GroupID error : " + err.Error())
 		}
 
-		if MRC401Job[index].SellFee != MRC401ItemData.SellFee {
-			if MRC401ItemData.SellDate > 0 {
-				return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already sale")
+		if isCreator {
+			if MRC401Job[index].SellFee != MRC401.SellFee {
+				if MRC401.SellDate > 0 {
+					return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already sale")
+				}
+
+				if MRC401.AuctionDate > 0 {
+					return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already auction")
+				}
 			}
 
-			if MRC401ItemData.AuctionDate > 0 {
-				return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already auction")
+			if err = util.NumericDataCheck(MRC401Job[index].SellFee, &MRC401.SellFee, "0", "99.9999", 4, false); err != nil {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item SellFee error : " + err.Error())
+			}
+
+			if MRC401Job[index].MeltingFee != MRC401.MeltingFee {
+				if MRC401.SellDate > 0 {
+					return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already sale")
+				}
+
+				if MRC401.AuctionDate > 0 {
+					return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already auction")
+				}
+			}
+
+			if err = util.NumericDataCheck(MRC401Job[index].MeltingFee, &MRC401.MeltingFee, "0", "99.9999", 4, false); err != nil {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item MeltingFee error : " + err.Error())
+			}
+
+			if MRC401.Transferable != "Temprary" {
+				if MRC401Job[index].Transferable != MRC401.Transferable {
+					return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value cannot be change")
+				}
+			} else {
+				if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401.Transferable, "string", 1, 128, false); err != nil {
+					return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
+				}
+
+				if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temprary" {
+					return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
+				}
 			}
 		}
 
-		if err = util.NumericDataCheck(MRC401Job[index].SellFee, &MRC401ItemData.SellFee, "0", "99.9999", 4, false); err != nil {
-			return errors.New("3005," + MRC401Job[index].ItemID + " item SellFee error : " + err.Error())
-		}
-
-		if MRC401Job[index].MeltingFee != MRC401ItemData.MeltingFee {
-			if MRC401ItemData.SellDate > 0 {
-				return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already sale")
-			}
-
-			if MRC401ItemData.AuctionDate > 0 {
-				return errors.New("3004,MRC401 [" + MRC401Job[index].ItemID + "] is already auction")
-			}
-		}
-
-		if err = util.NumericDataCheck(MRC401Job[index].MeltingFee, &MRC401ItemData.MeltingFee, "0", "99.9999", 4, false); err != nil {
-			return errors.New("3005," + MRC401Job[index].ItemID + " item MeltingFee error : " + err.Error())
-		}
-
-		if MRC401ItemData.Transferable != "Temprary" {
-			if MRC401Job[index].Transferable != MRC401ItemData.Transferable {
-				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value cannot be change")
-			}
-		} else {
-			if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401ItemData.Transferable, "string", 1, 128, false); err != nil {
-				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
-			}
-
-			if MRC401ItemData.Transferable != "Permanent" && MRC401ItemData.Transferable != "Bound" && MRC401ItemData.Transferable != "Temprary" {
-				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
-			}
-		}
-
-		if err = setMRC401(stub, mrc400id+"_"+MRC401Job[index].ItemID, MRC401ItemData, "mrc401_update", []string{mrc400id + "_" + MRC401Job[index].ItemID, MRC400.Owner, MRC401ItemData.InititalReserve, MRC401ItemData.InititalToken, signature, tkey}); err != nil {
+		if err = setMRC401(stub, MRC401, "mrc401_update", []string{MRC401.Id,
+			args[1], MRC401.InititalReserve, MRC401.InititalToken, args[3], args[4]}); err != nil {
 			return err
 		}
 		logData = append(logData, MRC401Job[index].ItemID)
-	}
-
-	// subtract token for item initial price
-	for token, totPrice := range createTotal {
-		if totPrice.IsPositive() {
-			if err = MRC010Subtract(stub, &projectOwnerWallet, token, totPrice.String(), MRC010MT_Normal); err != nil {
-				return err
-			}
-		}
 	}
 
 	// save create info
 	// - for update balance
 	// - for nonce update
 
-	if err = SetAddressInfo(stub, projectOwnerWallet, "mrc401update", []string{mrc400id, MRC400.Owner,
+	if err = SetAddressInfo(stub, MRC400Partner, "mrc401update", []string{MRC400.Id, MRC400.Owner,
 		util.JSONEncode(logData),
-		signature, tkey}); err != nil {
+		args[3], args[4]}); err != nil {
 		return err
 	}
+	return nil
+}
+
+func MRC401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
+	var err error
+	var MRC400Partner mtc.TWallet
+	var now int64
+	var MRC400 TMRC400
+	var MRC401 TMRC401
+
+	var createTotal map[string]decimal.Decimal
+	var tempPrice decimal.Decimal
+	var MRC401Job TMRC401CreateUpdate
+	var buyerWallet mtc.TWallet
+	var PaymentInfo []mtc.TDexPaymentInfo
+
+	var data []byte
+	var buf string
+
+	if len(args) < 5 {
+		return errors.New("1000,mrc401createtrade operation must include four arguments : " +
+			"mrc400id, creator, itemData, creatorSignature, creatorNonce, " +
+			"buyer, price, token, buyerSigniture, buyerNonce")
+	}
+
+	// args 0
+	if MRC400, _, err = GetMRC400(stub, args[0]); err != nil {
+		return err
+	}
+
+	// args 1
+	if MRC400.Owner == args[1] {
+		if MRC400Partner, err = GetAddressInfo(stub, args[1]); err != nil {
+			return err
+		}
+	} else if permission, isPartner := MRC400.Partner[args[1]]; isPartner {
+		if permission == "partner" || permission == "seller" {
+			if MRC400Partner, err = GetAddressInfo(stub, args[1]); err != nil {
+				return err
+			}
+		} else {
+			return errors.New("3007,MRC401 creation is only available to MRC400 partner or creator")
+		}
+	} else {
+		return errors.New("3007,MRC401 creation is only available to MRC400 owners or partner or creator")
+	}
+
+	// args 2
+	// MRC401 data parsing
+	if err = json.Unmarshal([]byte(args[2]), &MRC401Job); err != nil {
+		return errors.New("6205,MRC401 Data is in the wrong data - " + err.Error())
+	}
+
+	// args 3, 4 : sign check
+	if err = NonceCheck(&MRC400Partner, args[4],
+		strings.Join([]string{args[0], args[2], args[5], args[6], args[7], args[4]}, "|"),
+		args[3]); err != nil {
+		return err
+	}
+
+	// args 5
+	if buyerWallet, err = GetAddressInfo(stub, args[5]); err != nil {
+		return err
+	}
+	if buyerWallet.Id == MRC400Partner.Id {
+		return errors.New("3004,You cannot purchase items sold by yourself")
+	}
+	if buyerWallet.Id == MRC400Partner.Id {
+		return errors.New("3004,You cannot purchase items sold by yourself")
+	}
+
+	// args 7, 8 : buyer sign check
+	if err = NonceCheck(&MRC400Partner, args[9],
+		strings.Join([]string{args[0], args[2], args[5], args[6], args[7], args[9]}, "|"),
+		args[8]); err != nil {
+		return err
+	}
+
+	// args 6 trade price
+	if err = util.NumericDataCheck(args[6], &buf, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
+		return errors.New("3005,SellPrice error : " + err.Error())
+	}
+
+	// args 7
+	if _, _, err = GetMRC010(stub, args[7]); err != nil {
+		return errors.New("3005,Token id " + args[7] + " error : " + err.Error())
+	}
+	// Initital token check
+	if MRC400.AllowToken != "0" && MRC400.AllowToken != "" && args[7] != MRC400.AllowToken {
+		return errors.New("3005,Trade token is must " + MRC400.AllowToken)
+	}
+
+	// self trade check
+	if MRC400.Owner == buyerWallet.Id {
+		return errors.New("3004,MRC400 Owner cannot purchase items sold by yourself")
+	}
+	if MRC400Partner.Id == buyerWallet.Id {
+		return errors.New("3004,MRC401 Partner cannot purchase items sold by yourself")
+	}
+
+	// ================================================
+	// MRC401 Create
+	// ================================================
+	createTotal = make(map[string]decimal.Decimal)
+	now = time.Now().Unix()
+
+	// MRC401 exists check
+	data, err = stub.GetState(MRC400.Id + "_" + MRC401Job.ItemID)
+	if err != nil {
+		return errors.New("8600,Hyperledger internal error - " + err.Error())
+	}
+
+	if data != nil {
+		return errors.New("8600,Item ID " + MRC401Job.ItemID + " already exists in project " + MRC400.Id)
+	}
+
+	// init data
+	MRC401 = TMRC401{
+		Id:                   MRC400.Id + "_" + MRC401Job.ItemID,
+		MRC400:               MRC400.Id,
+		Owner:                buyerWallet.Id,
+		Creator:              MRC400Partner.Id,
+		ItemURL:              "",
+		ItemImageURL:         "",
+		GroupID:              "",
+		CreateDate:           now,
+		InititalReserve:      "0",
+		InititalToken:        "0",
+		MeltingFee:           "0.0",
+		Transferable:         "Permanent",
+		SellFee:              "0.0",
+		SellPrice:            "0",
+		SellToken:            "0",
+		SellDate:             0,
+		MeltingDate:          0,
+		JobType:              "mrc401_createtrade",
+		JobArgs:              "",
+		JobDate:              now,
+		AuctionDate:          0,
+		AuctionEnd:           0,
+		AuctionToken:         "0",
+		AuctionBiddingUnit:   "0",
+		AuctionStartPrice:    "0",
+		AuctionBuyNowPrice:   "0",
+		AuctionCurrentPrice:  "0",
+		AuctionCurrentBidder: "0",
+		LastTradeDate:        now,
+		LastTradeAmount:      args[6],
+		LastTradeToken:       args[7],
+		LastTradeType:        "Sell",
+		ShareHolder:          nil,
+		PlatformName:         "",
+		PlatformURL:          "",
+		PlatformAddress:      "",
+		PlatformCommission:   "",
+	}
+
+	// param check
+	if err = util.DataAssign(MRC401Job.ItemID, &MRC401Job.ItemID, "id", 40, 40, false); err != nil {
+		return errors.New("3005,ItemID error : " + err.Error())
+	}
+
+	if err = util.DataAssign(MRC401Job.ItemURL, &MRC401.ItemURL, "url", 1, 255, true); err != nil {
+		return errors.New("3005,ItemURL error : " + err.Error())
+	}
+
+	if err = util.DataAssign(MRC401Job.ItemImageURL, &MRC401.ItemImageURL, "url", 1, 255, true); err != nil {
+		return errors.New("3005,ItemImageURL error : " + err.Error())
+	}
+
+	if err = util.DataAssign(MRC401Job.GroupID, &MRC401.GroupID, "string", 1, 40, false); err != nil {
+		return errors.New("3005,GroupID error : " + err.Error())
+	}
+
+	if err = util.NumericDataCheck(MRC401Job.InititalReserve, &MRC401.InititalReserve, "0", "9999999999999999999999999999999999999999", 0, false); err != nil {
+		return errors.New("3005,InititalReserve error : " + err.Error())
+	}
+
+	if err = util.DataAssign(MRC401Job.InititalToken, &MRC401.InititalToken, "string", 1, 40, false); err != nil {
+		return errors.New("3005,InititalToken error : " + err.Error())
+	}
+
+	if err = util.NumericDataCheck(MRC401Job.MeltingFee, &MRC401.MeltingFee, "0", "99.9999", 4, false); err != nil {
+		return errors.New("3005,MeltingFee error : " + err.Error())
+	}
+
+	if err = util.DataAssign(MRC401Job.Transferable, &MRC401.Transferable, "string", 1, 128, false); err != nil {
+		return errors.New("3005,Transferable error : " + err.Error())
+	}
+
+	if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temprary" {
+		return errors.New("3005,Transferable value is Permanent, Bound, Temprary ")
+	}
+
+	if err = util.NumericDataCheck(MRC401Job.SellFee, &MRC401.SellFee, "0", "99.9999", 4, false); err != nil {
+		return errors.New("3005,SellFee error : " + err.Error())
+	}
+
+	// initial reserve check.
+	if tempPrice, err = decimal.NewFromString(MRC401.InititalReserve); err != nil {
+		return errors.New("3209,Invalid InititalReserve")
+	}
+	if tempPrice.IsPositive() {
+		createTotal[MRC401.InititalToken] = createTotal[MRC401.InititalToken].Add(tempPrice).Truncate(0)
+	}
+
+	if len(MRC401Job.ShareHolder) > 0 {
+		if len(MRC401Job.ShareHolder) > 5 {
+			return errors.New("3002,There must be 5 or fewer copyrighter")
+		}
+		index := 0
+		for shareholder, commission := range MRC401Job.ShareHolder {
+			if shareholder == MRC400.Owner {
+				return errors.New("3005," + util.GetOrdNumber(index) + " item shareholder The owner's address and the copyright holder's address are the same")
+			}
+			if _, err = GetAddressInfo(stub, shareholder); err != nil {
+				return errors.New("3005," + util.GetOrdNumber(index) + " shareholder item error : " + err.Error())
+			}
+			if err = util.NumericDataCheck(commission, &buf, "0", "10.0", 2, false); err != nil {
+				return errors.New("3005," + util.GetOrdNumber(index) + " shareholder item commission error : " + err.Error())
+			}
+			index++
+		}
+	}
+
+	// subtract token for item initial price
+	for token, totPrice := range createTotal {
+		if totPrice.IsPositive() {
+			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC400Partner.Id, ToAddr: MRC401.Id,
+				Amount: totPrice.String(), TokenID: token, TradeAmount: "", TradeID: "", PayType: "mrc401_create"})
+		}
+	}
+
+	// TODO FIX IT
+	if err = setMRC401(stub, MRC401, "mrc401_create", []string{MRC401.Id,
+		MRC400.Owner, MRC401.InititalReserve, MRC401.InititalToken, args[3], args[4]}); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -736,7 +1303,13 @@ func Mrc401Transfer(stub shim.ChaincodeStubInterface, mrc401id, fromAddr, toAddr
 
 	// item owner change
 	MRC401.Owner = toAddr
-	if err := setMRC401(stub, mrc401id, MRC401, "mrc401_transfer", args); err != nil {
+	// Change LastTradeType
+	if MRC401.LastTradeType == "" {
+		MRC401.LastTradeType = "Transfer"
+	}
+
+	// save MRC401
+	if err := setMRC401(stub, MRC401, "mrc401_transfer", args); err != nil {
 		return err
 	}
 
@@ -748,61 +1321,69 @@ func Mrc401Transfer(stub shim.ChaincodeStubInterface, mrc401id, fromAddr, toAddr
 }
 
 // Mrc401Sell Mrc401Sell
-func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, signature, tkey string, args []string) error {
+func Mrc401Sell(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
-	var sellerData mtc.TWallet
 	var now int64
-	var MRC401SellData []TMRC401Sell
+
+	var MRC401Seller mtc.TWallet
 	var MRC401 TMRC401
 	var MRC400 TMRC400
+
+	var MRC401SellData []TMRC401Sell
 	var logData []TMRC401Sell
 	var keyCheck map[string]int
 
-	if err = json.Unmarshal([]byte(itemData), &MRC401SellData); err != nil {
+	if len(args) < 4 {
+		return errors.New("1000,mrc401sell operation must include four arguments : seller, itemData, sign, tkey")
+	}
+
+	// seller, itemData, signature, tkey string,
+	if err = json.Unmarshal([]byte(args[1]), &MRC401SellData); err != nil {
 		return errors.New("3004,Selldata is in the wrong data " + err.Error())
 	}
-	if len(MRC401SellData) > 100 {
-		return errors.New("3002,There must be 100 or fewer sell item")
+	if len(MRC401SellData) > 1000 {
+		return errors.New("3002,There must be 1000 or fewer sell item")
 	}
 	if len(MRC401SellData) < 1 {
 		return errors.New("3002,There is no item information")
 	}
 	// get seller info
-	if sellerData, err = GetAddressInfo(stub, seller); err != nil {
+	if MRC401Seller, err = GetAddressInfo(stub, args[0]); err != nil {
 		return err
 	}
 
 	// sign check
-	if err = NonceCheck(&sellerData, tkey,
-		strings.Join([]string{seller, itemData, tkey}, "|"),
-		signature); err != nil {
+	if err = NonceCheck(&MRC401Seller, args[3],
+		strings.Join([]string{args[0], args[1], args[3]}, "|"),
+		args[2]); err != nil {
 		return err
 	}
 
-	logData = make([]TMRC401Sell, 0, len(MRC401SellData))
-	keyCheck = make(map[string]int)
 	now = time.Now().Unix()
+
+	keyCheck = make(map[string]int)
 	for index := range MRC401SellData {
+		// item duplication check
 		if _, exists := keyCheck[MRC401SellData[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401SellData[index].ItemID] = 0
 
+		// get MRC401
 		if MRC401, _, err = GetMRC401(stub, MRC401SellData[index].ItemID); err != nil {
 			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] - " + err.Error())
 		}
 
-		if mrc400id != MRC401.MRC400 {
-			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] is not MRC400 " + mrc400id + " item")
+		// get MRC400
+		if MRC400.Id != MRC401.MRC400 {
+			if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
+				return err
+			}
 		}
 
-		// get project
-		if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
+		// permission check
+		if err = Mrc401PermissionCheck(MRC400, MRC401, args[0], MRC401AT_Sell); err != nil {
 			return err
-		}
-		// item owner check.
-		if MRC401.Owner != seller {
-			return errors.New("3004,MRC401 [" + MRC401SellData[index].ItemID + "] is not your item")
 		}
 
 		// item is sell or auction ?
@@ -827,81 +1408,109 @@ func Mrc401Sell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, si
 		}
 
 		//  token check
-		if MRC401SellData[index].SellToken != MRC400.AllowToken && MRC401SellData[index].SellToken != "0" {
-			if MRC400.AllowToken != "0" {
+		if MRC400.AllowToken != "0" && MRC400.AllowToken != "" {
+			if MRC401SellData[index].SellToken != MRC400.AllowToken && MRC401SellData[index].SellToken != "0" {
 				return errors.New("3005," + util.GetOrdNumber(index) + " item SellToken is must " + MRC400.AllowToken + " or metacoin")
 			}
-			return errors.New("3005," + util.GetOrdNumber(index) + " item SellToken is must " + MRC400.AllowToken)
 		}
+
+		// Platform Name
+		if err = util.DataAssign(MRC401SellData[index].PlatformName, &MRC401.PlatformName, "string", 1, 255, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+
+		// Platform URL
+		if err = util.DataAssign(MRC401SellData[index].PlatformURL, &MRC401.PlatformURL, "url", 1, 255, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+
+		// Platform Address
+		if err = util.DataAssign(MRC401SellData[index].PlatformAddress, &MRC401.PlatformAddress, "address", 40, 40, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+		if util.IsAddress(MRC401.PlatformAddress) {
+			if _, err = GetAddressInfo(stub, MRC401.PlatformAddress); err != nil {
+				return errors.New("3005," + "PlatformAddress not found : " + err.Error())
+			}
+		}
+		// Platform Commission
+		if err = util.NumericDataCheck(MRC401SellData[index].PlatformCommission, &MRC401.PlatformCommission, "0.00", "10.00", 2, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+
+		// set sell token
 		MRC401.SellToken = MRC401SellData[index].SellToken
 
-		// save item
 		MRC401.SellDate = now
-		if err = setMRC401(stub, MRC401SellData[index].ItemID, MRC401, "mrc401_sell", []string{MRC401SellData[index].ItemID, seller, MRC401SellData[index].SellPrice, MRC401SellData[index].SellToken, signature, tkey}); err != nil {
+
+		// save item
+		MRC401.LastWorker = MRC401Seller.Id
+		if err = setMRC401(stub, MRC401, "mrc401_sell", []string{MRC401SellData[index].ItemID,
+			args[0], MRC401SellData[index].SellPrice, MRC401SellData[index].SellToken, args[2], args[3]}); err != nil {
 			return err
 		}
-		logData = append(logData, TMRC401Sell{ItemID: MRC401SellData[index].ItemID, SellPrice: MRC401SellData[index].SellPrice, SellToken: MRC401SellData[index].SellToken})
-
+		logData = append(logData, TMRC401Sell{
+			ItemID:    MRC401SellData[index].ItemID,
+			SellPrice: MRC401SellData[index].SellPrice,
+			SellToken: MRC401SellData[index].SellToken})
 	}
 
 	// save owner info for nonce update
-	if err = SetAddressInfo(stub, sellerData, "mrc401sell", []string{util.JSONEncode(logData), seller, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, MRC401Seller, "mrc401sell", []string{util.JSONEncode(logData), args[0], args[2], args[3]}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Mrc401UnSell Mrc401UnSell
-func Mrc401UnSell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, signature, tkey string, args []string) error {
+func Mrc401UnSell(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
-	var ownerWallet mtc.TWallet
+	var MRC401Seller mtc.TWallet
 	var MRC401list []string
+	var MRC400 TMRC400
 	var MRC401 TMRC401
 	var logData []string
-	var keyCheck map[string]int
 
-	if err = json.Unmarshal([]byte(itemData), &MRC401list); err != nil {
+	// seller, itemData, signature, tkey string,
+	if len(args) < 4 {
+		return errors.New("1000,mrc401unsell operation must include four arguments : seller, itemData, sign, tkey")
+	}
+
+	// get seller info
+	if MRC401Seller, err = GetAddressInfo(stub, args[0]); err != nil {
+		return err
+	}
+
+	// sign check
+	if err = NonceCheck(&MRC401Seller, args[3],
+		strings.Join([]string{args[0], args[1], args[3]}, "|"),
+		args[2]); err != nil {
+		return err
+	}
+
+	// 0 item data
+	if err = json.Unmarshal([]byte(args[1]), &MRC401list); err != nil {
 		return errors.New("3004,Selldata is in the wrong data " + err.Error())
 	}
-	if len(MRC401list) > 100 {
-		return errors.New("3002,There must be 100 or fewer unsell item")
+	if len(MRC401list) > 1000 {
+		return errors.New("3002,There must be 1000 or fewer unsell item")
 	}
 	if len(MRC401list) < 1 {
 		return errors.New("3002,There is no item information")
 	}
 
-	// get seller info
-	if ownerWallet, err = GetAddressInfo(stub, seller); err != nil {
-		return err
-	}
-
-	// sign check
-	if err = NonceCheck(&ownerWallet, tkey,
-		strings.Join([]string{seller, itemData, tkey}, "|"),
-		signature); err != nil {
-		return err
-	}
-
-	logData = make([]string, 0, len(MRC401list))
-	keyCheck = make(map[string]int)
 	for index := range MRC401list {
-
-		if _, exists := keyCheck[MRC401list[index]]; exists {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is duplicate")
-		}
-		keyCheck[MRC401list[index]] = 0
-
 		if MRC401, _, err = GetMRC401(stub, MRC401list[index]); err != nil {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] - " + err.Error())
 		}
-
-		if mrc400id != MRC401.MRC400 {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is not MRC400 " + mrc400id + " item")
+		if MRC400.Id != MRC401.MRC400 {
+			if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
+				return err
+			}
 		}
 
-		// item owner check.
-		if MRC401.Owner != seller {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is not your item")
+		if err = Mrc401PermissionCheck(MRC400, MRC401, MRC401Seller.Id, MRC401AT_UnSell); err != nil {
+			return err
 		}
 
 		// item is sell ?
@@ -909,170 +1518,81 @@ func Mrc401UnSell(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, 
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is not sale")
 		}
 
-		// save item
+		// sell info clear
 		MRC401.SellDate = 0
 		MRC401.SellPrice = "0"
 		MRC401.SellToken = "0"
-		if err = setMRC401(stub, MRC401list[index], MRC401, "mrc401_unsell", []string{MRC401list[index], seller, signature, tkey}); err != nil {
+
+		// platform info clear
+		MRC401.PlatformAddress = ""
+		MRC401.PlatformCommission = ""
+		MRC401.PlatformName = ""
+		MRC401.PlatformURL = ""
+
+		// set Last worker.
+		MRC401.LastWorker = MRC401Seller.Id
+
+		// save MRC401
+		if err = setMRC401(stub, MRC401, "mrc401_unsell", []string{MRC401list[index], args[0], args[2], args[3]}); err != nil {
 			return err
 		}
 		logData = append(logData, MRC401list[index])
 	}
 
 	// save owner info for nonce update
-	if err = SetAddressInfo(stub, ownerWallet, "mrc401unsell", []string{util.JSONEncode(logData), seller, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, MRC401Seller, "mrc401unsell", []string{util.JSONEncode(logData), args[0], args[2], args[3]}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Mrc401Buy Mrc401Buy
-func Mrc401Buy(stub shim.ChaincodeStubInterface, buyer, mrc401id, signature, tkey string, args []string) error {
+func Mrc401Buy(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
-	var sellerWallet mtc.TWallet
+	var MRC400 TMRC400
+	var MRC401 TMRC401
+
 	var buyerWallet mtc.TWallet
-	var projectOwnerWallet mtc.TWallet
-	var MRC401ItemData TMRC401
-	var MRC400ProjectData TMRC400
-	var seller string
-
-	var payPrice decimal.Decimal     // Trade price
-	var feeRate decimal.Decimal      // Melting Fee(percents)    100% == 100
-	var Percent decimal.Decimal      // "100"  (Price * feeRate / Percent)
-	var receivePrice decimal.Decimal // The amount the owner will receive
-	var feePrice decimal.Decimal     // The amount the creator will receive
-
 	var PaymentInfo []mtc.TDexPaymentInfo
-	PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 3)
+
+	if len(args) < 4 {
+		return errors.New("1000,mrc401buy operation must include four arguments : buyer, mrc401id, sign, tkey")
+	}
+
+	// buyer, mrc401id, signature, tkey string,
+	// sign check
+	if buyerWallet, err = GetAddressInfo(stub, args[0]); err != nil {
+		return err
+	}
+	if err = NonceCheck(&buyerWallet, args[3],
+		strings.Join([]string{args[1], args[3]}, "|"),
+		args[2]); err != nil {
+		return err
+	}
 
 	// get item info
-	if MRC401ItemData, _, err = GetMRC401(stub, mrc401id); err != nil {
+	if MRC401, _, err = GetMRC401(stub, args[1]); err != nil {
 		return err
 	}
 	// item is sell ??
-	if MRC401ItemData.SellDate == 0 {
-		return errors.New("3004,MRC401 [" + mrc401id + "] is not for sale")
+	if MRC401.SellDate == 0 {
+		return errors.New("3004,MRC401 [" + MRC401.Id + "] is not for sale")
 	}
 	// block self trade
-	if buyer == MRC401ItemData.Owner {
+	if buyerWallet.Id == MRC401.Owner {
 		return errors.New("3004,You cannot purchase items sold by yourself")
 	}
-
-	seller = MRC401ItemData.Owner
-	payPrice, _ = decimal.NewFromString(MRC401ItemData.SellPrice)
-
-	// sign check
-	if buyerWallet, err = GetAddressInfo(stub, buyer); err != nil {
-		return err
-	}
-	if err = NonceCheck(&buyerWallet, tkey,
-		strings.Join([]string{mrc401id, tkey}, "|"),
-		signature); err != nil {
-		return err
-	}
-
 	// get Project
-	if MRC400ProjectData, _, err = GetMRC400(stub, MRC401ItemData.MRC400); err != nil {
+	if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
 		return err
 	}
 
 	// set payment info 1st - buy(buyer => mrc401)
-	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: buyer, ToAddr: mrc401id,
-		Amount: payPrice.String(), TokenID: MRC401ItemData.SellToken, PayType: "mrc401_buy"})
-	if err = MRC010Subtract(stub, &buyerWallet, MRC401ItemData.SellToken, payPrice.String(), MRC010MT_Normal); err != nil {
-		return err
-	}
+	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{
+		FromAddr: buyerWallet.Id, ToAddr: MRC401.Id,
+		Amount: MRC401.SellPrice, TokenID: MRC401.SellToken, PayType: "mrc401_buy"})
 
-	// calc fee
-	if seller == MRC400ProjectData.Owner {
-		feePrice = decimal.Zero
-		receivePrice = payPrice
-	} else {
-		feeRate, _ = decimal.NewFromString(MRC401ItemData.MeltingFee)
-		Percent, _ = decimal.NewFromString("100")
-		feePrice = payPrice.Mul(feeRate).Div(Percent).Floor()
-		receivePrice = payPrice.Sub(feePrice)
-	}
-	if buyer == MRC400ProjectData.Owner {
-		if feePrice.IsPositive() {
-			// add fee to buyer(project owner)
-			if err = MRC010Add(stub, &buyerWallet, MRC401ItemData.SellToken, feePrice.String(), 0); err != nil {
-				return err
-			}
-		}
-	}
-
-	// save buyer info
-	if err = SetAddressInfo(stub, buyerWallet, "transfer_mrc401buy", []string{buyer, mrc401id, payPrice.String(),
-		MRC401ItemData.SellToken, signature, "0", "", mrc401id, tkey}); err != nil {
-		return err
-	}
-
-	// fee to proejct owner
-	if feePrice.IsPositive() {
-		// set payment info 2nd - fee(mrc401 => project owner)
-		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: MRC400ProjectData.Owner,
-			Amount: feePrice.String(), TokenID: MRC401ItemData.SellToken, PayType: "mrc401_recv_fee"})
-		if buyer != MRC400ProjectData.Owner {
-			// get Proejct Owner
-			if projectOwnerWallet, err = GetAddressInfo(stub, MRC400ProjectData.Owner); err != nil {
-				return err
-			}
-
-			// Add trade fee
-			if err = MRC010Add(stub, &projectOwnerWallet, MRC401ItemData.SellToken, feePrice.String(), 0); err != nil {
-				return err
-			}
-			// Save Project Owner
-			if err = SetAddressInfo(stub, projectOwnerWallet, "receive_mrc401fee",
-				[]string{seller, MRC400ProjectData.Owner, feePrice.String(), MRC401ItemData.SellToken, signature, "0", "", mrc401id, tkey}); err != nil {
-				return err
-			}
-		}
-	}
-
-	// payment to seller.
-	if receivePrice.IsPositive() {
-		// set payment info 3th - recv Item sales price (mrc401 => seller)
-		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: seller,
-			Amount: receivePrice.String(), TokenID: MRC401ItemData.SellToken, PayType: "mrc401_recv_sell"})
-
-		// get owner data for trade price recv
-		if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
-			return err
-		}
-
-		// add remain price
-		if err = MRC010Add(stub, &sellerWallet, MRC401ItemData.SellToken, receivePrice.String(), 0); err != nil {
-			return err
-		}
-
-		// save owner info
-		if err = SetAddressInfo(stub, sellerWallet, "receive_mrc401sell",
-			[]string{buyer, seller, receivePrice.String(), MRC401ItemData.SellToken, signature, "0", "", mrc401id, tkey}); err != nil {
-			return err
-		}
-	}
-
-	// item owner change for Buy
-	MRC401ItemData.Owner = buyer
-
-	// set last trade info
-	MRC401ItemData.LastTradeDate = time.Now().Unix()
-	MRC401ItemData.LastTradeAmount = MRC401ItemData.SellPrice
-	MRC401ItemData.LastTradeToken = MRC401ItemData.SellToken
-	MRC401ItemData.LastTradeType = "Sell"
-
-	// clear sell data.
-	MRC401ItemData.SellDate = 0
-	MRC401ItemData.SellPrice = "0"
-	MRC401ItemData.SellToken = "0"
-
-	if err = setMRC401(stub, mrc401id, MRC401ItemData, "mrc401_buy", []string{mrc401id, seller, buyer, util.JSONEncode(PaymentInfo), signature, tkey}); err != nil {
-		return err
-	}
-
-	return nil
+	return mrc401DexProcess(stub, MRC400, MRC401, buyerWallet, PaymentInfo, MRC401AT_Buy, args[2], args[3])
 }
 
 // Mrc401Melt Mrc401Melt
@@ -1091,8 +1611,6 @@ func Mrc401Melt(stub shim.ChaincodeStubInterface, mrc401id, signature, tkey stri
 	var Percent decimal.Decimal       // "100"  (Price * feeRate / Percent)
 	var receivePrice decimal.Decimal  // The amount the owner will receive
 	var feePrice decimal.Decimal      // The amount the creator will receive
-
-	PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 2)
 
 	// get item info
 	if MRC401ItemData, _, err = GetMRC401(stub, mrc401id); err != nil {
@@ -1178,9 +1696,12 @@ func Mrc401Melt(stub shim.ChaincodeStubInterface, mrc401id, signature, tkey stri
 	}
 
 	// item owner change for MELTED
+	MRC401ItemData.LastWorker = MRC401ItemData.Owner
+
+	//
 	MRC401ItemData.Owner = "MELTED"
 	MRC401ItemData.MeltingDate = time.Now().Unix()
-	if err = setMRC401(stub, mrc401id, MRC401ItemData, "mrc401_melt", []string{mrc401id, itemOwner, util.JSONEncode(PaymentInfo), signature, tkey}); err != nil {
+	if err = setMRC401(stub, MRC401ItemData, "mrc401_melt", []string{mrc401id, itemOwner, util.JSONEncode(PaymentInfo), signature, tkey}); err != nil {
 		return err
 	}
 
@@ -1188,386 +1709,408 @@ func Mrc401Melt(stub shim.ChaincodeStubInterface, mrc401id, signature, tkey stri
 }
 
 // Mrc401Auction Mrc401Sell
-func Mrc401Auction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, signature, tkey string, args []string) error {
+func Mrc401Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
 	var now int64
-	var buffer string
 
-	var sellerWallet mtc.TWallet
+	var MRC401Seller mtc.TWallet
+	var MRC400 TMRC400
+	var MRC401 TMRC401
 
 	var MRC401AuctionData []TMRC401Auction
-	var MRC401ItemData TMRC401
-	var MRC400ProjectData TMRC400
 
-	var auctionStart, auctionBuynow decimal.Decimal
-
+	var logData []TMRC401Sell
 	var keyCheck map[string]int
 
-	if err = json.Unmarshal([]byte(itemData), &MRC401AuctionData); err != nil {
+	// seller, itemData, signature, tkey string,
+	if len(args) < 4 {
+		return errors.New("1000,mrc401auction operation must include four arguments : " +
+			"seller, itemData, sign, tkey")
+	}
+
+	if err = json.Unmarshal([]byte(args[1]), &MRC401AuctionData); err != nil {
 		return errors.New("3004,Selldata is in the wrong data " + err.Error())
 	}
-	if len(MRC401AuctionData) > 100 {
-		return errors.New("3002,There must be 100 or fewer sell item")
+	if len(MRC401AuctionData) > 1000 {
+		return errors.New("3002,There must be 1000 or fewer sell item")
 	}
 	if len(MRC401AuctionData) < 1 {
 		return errors.New("3002,There is no item information")
 	}
 	// get seller info
-	if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
+	if MRC401Seller, err = GetAddressInfo(stub, args[0]); err != nil {
 		return err
 	}
 
 	// sign check
-	if err = NonceCheck(&sellerWallet, tkey,
-		strings.Join([]string{seller, itemData, tkey}, "|"),
-		signature); err != nil {
+	if err = NonceCheck(&MRC401Seller, args[3],
+		strings.Join([]string{args[0], args[1], args[3]}, "|"),
+		args[2]); err != nil {
 		return err
 	}
-	// auction item check.
+
 	now = time.Now().Unix()
 
 	keyCheck = make(map[string]int)
 	for index := range MRC401AuctionData {
+		// item duplication check
 		if _, exists := keyCheck[MRC401AuctionData[index].ItemID]; exists {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is duplicate")
 		}
 		keyCheck[MRC401AuctionData[index].ItemID] = 0
 
-		if MRC401ItemData, _, err = GetMRC401(stub, MRC401AuctionData[index].ItemID); err != nil {
+		// get MRC401
+		if MRC401, _, err = GetMRC401(stub, MRC401AuctionData[index].ItemID); err != nil {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] - " + err.Error())
 		}
 
-		if mrc400id != MRC401ItemData.MRC400 {
-			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is not MRC400 " + mrc400id + " item")
+		// get MRC400
+		if MRC400.Id != MRC401.MRC400 {
+			if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
+				return err
+			}
 		}
 
-		// get project
-		if MRC400ProjectData, _, err = GetMRC400(stub, MRC401ItemData.MRC400); err != nil {
+		// Permission check
+		if err = Mrc401PermissionCheck(MRC400, MRC401, MRC401Seller.Id, MRC401AT_Auction); err != nil {
 			return err
 		}
 
-		if err = json.Unmarshal([]byte(buffer), &MRC400ProjectData); err != nil {
-			return errors.New("3004,MRC400 [" + MRC401ItemData.MRC400 + "] is in the wrong data")
-		}
-		// item owner check.
-		if MRC401ItemData.Owner != seller {
-			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is not your item")
-		}
-
 		// sale or auction item ?
-		if MRC401ItemData.SellDate > 0 {
+		if MRC401.SellDate > 0 {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is already sale")
 		}
-		if MRC401ItemData.AuctionDate > 0 {
+		if MRC401.AuctionDate > 0 {
 			return errors.New("3004,MRC401 [" + MRC401AuctionData[index].ItemID + "] is already auction")
 		}
 
+		// Platform Name
+		if err = util.DataAssign(MRC401AuctionData[index].PlatformName, &MRC401.PlatformName, "string", 1, 255, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+
+		// Platform URL
+		if err = util.DataAssign(MRC401AuctionData[index].PlatformURL, &MRC401.PlatformURL, "url", 1, 255, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+
+		// Platform Address
+		if err = util.DataAssign(MRC401AuctionData[index].PlatformAddress, &MRC401.PlatformAddress, "address", 40, 40, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+		if util.IsAddress(MRC401.PlatformAddress) {
+			if _, err = GetAddressInfo(stub, MRC401.PlatformAddress); err != nil {
+				return errors.New("3005," + "PlatformAddress not found : " + err.Error())
+			}
+		}
+		// Platform Commission
+		if err = util.NumericDataCheck(MRC401AuctionData[index].PlatformCommission, &MRC401.PlatformCommission, "0.00", "10.00", 2, true); err != nil {
+			return errors.New("3005,InititalToken error : " + err.Error())
+		}
+
 		// item transferable ?
-		if MRC401ItemData.Transferable == "Bound" {
-			if MRC401ItemData.Owner != MRC400ProjectData.Owner {
+		if MRC401.Transferable == "Bound" {
+			if MRC401.Owner != MRC400.Owner {
 				return errors.New("5002,MRC401 [" + MRC401AuctionData[index].ItemID + "] is cannot be sold")
 			}
 		}
 
 		// start price check
-		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionStartPrice, &MRC401ItemData.AuctionStartPrice, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
+		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionStartPrice, &MRC401.AuctionStartPrice, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item auction_start_price error : " + err.Error())
 		}
 
 		// buynow price check
-		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionBuyNowPrice, &MRC401ItemData.AuctionBuyNowPrice, "0", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, true); err != nil {
+		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionBuyNowPrice, &MRC401.AuctionBuyNowPrice, "0", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, true); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item auction_buynow_price error : " + err.Error())
 		}
 
 		// bidding unit price check
-		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionBiddingUnit, &MRC401ItemData.AuctionBiddingUnit, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
+		if err = util.NumericDataCheck(MRC401AuctionData[index].AuctionBiddingUnit, &MRC401.AuctionBiddingUnit, "1", "99999999999999999999999999999999999999999999999999999999999999999999999999999999", 0, false); err != nil {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item auction_bidding_unit error : " + err.Error())
 		}
 
-		auctionStart, _ = decimal.NewFromString(MRC401ItemData.AuctionStartPrice)
-		auctionBuynow, _ = decimal.NewFromString(MRC401ItemData.AuctionBuyNowPrice)
+		auctionStart, _ := decimal.NewFromString(MRC401.AuctionStartPrice)
+		auctionBuynow, _ := decimal.NewFromString(MRC401.AuctionBuyNowPrice)
 		if !auctionBuynow.IsZero() && auctionBuynow.Cmp(auctionStart) < 0 {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item buynow price is must be greater then auction start price")
 		}
 
 		//  token check
-		if MRC401AuctionData[index].AuctionToken != MRC400ProjectData.AllowToken && MRC401AuctionData[index].AuctionToken != "0" {
-			if MRC400ProjectData.AllowToken != "0" {
-				return errors.New("3005," + util.GetOrdNumber(index) + " item auction_token is must " + MRC400ProjectData.AllowToken + " or metacoin")
+		if MRC400.AllowToken != "0" && MRC400.AllowToken != "" {
+			if MRC401AuctionData[index].AuctionToken != MRC400.AllowToken && MRC401AuctionData[index].AuctionToken != "0" {
+				return errors.New("3005," + util.GetOrdNumber(index) + " item SellToken is must " + MRC400.AllowToken + " or metacoin")
 			}
-			return errors.New("3005," + util.GetOrdNumber(index) + " item auction_token is must " + MRC400ProjectData.AllowToken)
 		}
-		MRC401ItemData.AuctionToken = MRC401AuctionData[index].AuctionToken
+		MRC401.AuctionToken = MRC401AuctionData[index].AuctionToken
 
-		MRC401ItemData.AuctionEnd = MRC401AuctionData[index].AuctionEnd
+		MRC401.AuctionCurrentPrice = "0"
+		MRC401.AuctionCurrentBidder = ""
+		MRC401.AuctionDate = now
+		MRC401.AuctionEnd = MRC401AuctionData[index].AuctionEnd
 		if (MRC401AuctionData[index].AuctionEnd - now) < 3600 {
-			MRC401ItemData.AuctionEnd = now + 3600
+			MRC401.AuctionEnd = now + 3600
 		} else if (MRC401AuctionData[index].AuctionEnd - now) > 1814400 {
-			MRC401ItemData.AuctionEnd = now + 1814400
+			MRC401.AuctionEnd = now + 1814400
 		}
+
+		MRC401.LastWorker = MRC401Seller.Id
 		// save item
-		MRC401ItemData.AuctionCurrentPrice = "0"
-		MRC401ItemData.AuctionCurrentBidder = ""
-		MRC401ItemData.AuctionDate = now
-		setMRC401(stub, MRC401AuctionData[index].ItemID, MRC401ItemData, "mrc401_auction", []string{MRC401AuctionData[index].ItemID, seller, MRC401ItemData.AuctionStartPrice, MRC401ItemData.AuctionToken, MRC401ItemData.AuctionBuyNowPrice, MRC401ItemData.AuctionBiddingUnit, signature, tkey})
+		if err = setMRC401(stub, MRC401, "mrc401_auction", []string{
+			MRC401AuctionData[index].ItemID, MRC401Seller.Id, MRC401.AuctionStartPrice, MRC401.AuctionToken, MRC401.AuctionBuyNowPrice,
+			MRC401.AuctionBiddingUnit, args[2], args[3]}); err != nil {
+			return err
+		}
+		logData = append(logData, TMRC401Sell{
+			ItemID:    MRC401AuctionData[index].ItemID,
+			SellPrice: MRC401AuctionData[index].AuctionStartPrice,
+			SellToken: MRC401AuctionData[index].AuctionToken})
+
 	}
 
 	// save owner info for nonce update
-	if err = SetAddressInfo(stub, sellerWallet, "mrc401auction", []string{itemData, seller, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, MRC401Seller, "mrc401auction", []string{args[3], args[0], args[2], args[3]}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Mrc401UnAuction Mrc401UnAuction
-func Mrc401UnAuction(stub shim.ChaincodeStubInterface, seller, mrc400id, itemData, signature, tkey string, args []string) error {
+func Mrc401UnAuction(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
-	var sellerWallet mtc.TWallet
+	var MRC401Seller mtc.TWallet
 	var MRC401list []string
-	var MRC401ItemData TMRC401
-	var keyCheck map[string]int
+	var MRC400 TMRC400
+	var MRC401 TMRC401
+	var logData []string
 
-	if err = json.Unmarshal([]byte(itemData), &MRC401list); err != nil {
+	// seller, itemData, signature, tkey string,
+	if len(args) < 4 {
+		return errors.New("1000,mrc401unsell operation must include four arguments : " +
+			"seller, itemData, sign, tkey")
+	}
+
+	// get seller info
+	if MRC401Seller, err = GetAddressInfo(stub, args[0]); err != nil {
+		return err
+	}
+	// sign check
+	if err = NonceCheck(&MRC401Seller, args[3],
+		strings.Join([]string{args[0], args[1], args[3]}, "|"),
+		args[2]); err != nil {
+		return err
+	}
+
+	if err = json.Unmarshal([]byte(args[1]), &MRC401list); err != nil {
 		return errors.New("3004,Selldata is in the wrong data " + err.Error())
 	}
-	if len(MRC401list) > 100 {
-		return errors.New("3002,There must be 100 or fewer unauction item")
+	if len(MRC401list) > 1000 {
+		return errors.New("3002,There must be 1000 or fewer unauction item")
 	}
 	if len(MRC401list) < 1 {
 		return errors.New("3002,There is no item information")
 	}
-	// get seller info
-	if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
-		return err
-	}
 
-	// sign check
-	if err = NonceCheck(&sellerWallet, tkey,
-		strings.Join([]string{seller, itemData, tkey}, "|"),
-		signature); err != nil {
-		return err
-	}
-
-	keyCheck = make(map[string]int)
 	for index := range MRC401list {
-		if _, exists := keyCheck[MRC401list[index]]; exists {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is duplicate")
-		}
-		keyCheck[MRC401list[index]] = 0
-
-		if MRC401ItemData, _, err = GetMRC401(stub, MRC401list[index]); err != nil {
+		if MRC401, _, err = GetMRC401(stub, MRC401list[index]); err != nil {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] - " + err.Error())
 		}
-
-		if mrc400id != MRC401ItemData.MRC400 {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is not MRC400 " + mrc400id + " item")
+		if MRC400.Id != MRC401.MRC400 {
+			if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
+				return err
+			}
 		}
 
-		// item owner check.
-		if MRC401ItemData.Owner != seller {
-			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is not your item")
+		if err = Mrc401PermissionCheck(MRC400, MRC401, MRC401Seller.Id, MRC401AT_UnAuction); err != nil {
+			return err
 		}
 
 		// is auction item ?
-		if MRC401ItemData.AuctionDate == 0 {
+		if MRC401.AuctionDate == 0 {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] is not auction item")
 		}
 
 		// bidder exists ?
-		if MRC401ItemData.AuctionCurrentBidder != "" {
+		if MRC401.AuctionCurrentBidder != "" {
 			return errors.New("3004,MRC401 [" + MRC401list[index] + "] there is a bidder, so the auction cannot be canceled")
 		}
 
 		// clear auction data
-		MRC401ItemData.AuctionDate = 0
-		MRC401ItemData.AuctionEnd = 0
-		MRC401ItemData.AuctionToken = "0"
-		MRC401ItemData.AuctionBiddingUnit = "0"
-		MRC401ItemData.AuctionStartPrice = "0"
-		MRC401ItemData.AuctionBuyNowPrice = "0"
-		MRC401ItemData.AuctionCurrentPrice = "0"
-		MRC401ItemData.AuctionCurrentBidder = ""
-		setMRC401(stub, MRC401list[index], MRC401ItemData, "mrc401_unauction", []string{MRC401list[index], seller, signature, tkey})
+		MRC401.AuctionDate = 0
+		MRC401.AuctionEnd = 0
+		MRC401.AuctionToken = "0"
+		MRC401.AuctionBiddingUnit = "0"
+		MRC401.AuctionStartPrice = "0"
+		MRC401.AuctionBuyNowPrice = "0"
+		MRC401.AuctionCurrentPrice = "0"
+		MRC401.AuctionCurrentBidder = ""
+
+		// platform info clear
+		MRC401.PlatformAddress = ""
+		MRC401.PlatformCommission = ""
+		MRC401.PlatformName = ""
+		MRC401.PlatformURL = ""
+
+		// set Last worker.
+		MRC401.LastWorker = MRC401Seller.Id
+
+		// save MRC401
+		if err = setMRC401(stub, MRC401, "mrc401_unauction", []string{MRC401list[index], args[0], args[2], args[3]}); err != nil {
+			return err
+		}
+		logData = append(logData, MRC401list[index])
 	}
 
 	// save owner info for nonce update
-	if err = SetAddressInfo(stub, sellerWallet, "mrc401unauction", []string{itemData, seller, signature, tkey}); err != nil {
+	if err = SetAddressInfo(stub, MRC401Seller, "mrc401unauction", []string{util.JSONEncode(logData), args[0], args[2], args[3]}); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Mrc401AuctionBid Mrc401AuctionBid
-func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, buyer, mrc401id, amount, token, signature, tkey string, args []string) error {
+func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
+	var now = time.Now().Unix()
 	var err error
-	var now int64
-	var buffer string
-
-	var buyerWallet, currentBidderWallet mtc.TWallet
-	var MRC401ItemData TMRC401
-	var MRC400ProjectData TMRC400
-
-	var currentPrice, bidAmount, bidUnit, buyNow, diffPrice decimal.Decimal
-
-	var feeRate decimal.Decimal  // Melting Fee(percents)    100% == 100
-	var Percent decimal.Decimal  // "100"  (Price * feeRate / Percent)
-	var feePrice decimal.Decimal // The amount the creator will receive
+	var buyerWallet mtc.TWallet
+	var MRC401 TMRC401
+	var MRC400 TMRC400
+	var buyerAddress string
+	var refunderWallet mtc.TWallet
+	var refunderAddress string
 
 	var PaymentInfo []mtc.TDexPaymentInfo
 
+	var buyNow, oldBidPrice, newBidPrice, bidUnit decimal.Decimal
 	var isBuynow bool
 
-	now = time.Now().Unix()
-	PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 4)
+	// buyer, mrc401id, amount, token, signature, tkey string,
+	if len(args) < 6 {
+		return errors.New("1000,mrc402bid operation must include four arguments : " +
+			"buyer, mrc401id, amount, token, signature, nonce")
+	}
+	buyerAddress = args[0]
 
 	// get item info
-	if MRC401ItemData, _, err = GetMRC401(stub, mrc401id); err != nil {
+	if MRC401, _, err = GetMRC401(stub, args[1]); err != nil {
 		return err
 	}
 
-	// is auction ?
-	if MRC401ItemData.AuctionDate == 0 {
-		return errors.New("3004,MRC401 [" + mrc401id + "] is not for auction")
+	// status check.
+	if MRC401.AuctionDate == 0 {
+		return errors.New("3004,MRC401 [" + MRC401.Id + "] is not for auction")
 	}
-	if MRC401ItemData.AuctionEnd < now {
-		return errors.New("3004,MRC401 [" + mrc401id + "] has completed auction")
+	if MRC401.AuctionEnd < now {
+		return errors.New("3004,MRC401 [" + MRC401.Id + "] has completed auction")
 	}
 
-	// buyer check.
-	if MRC401ItemData.AuctionCurrentBidder == buyer {
-		return errors.New("3004,You are already the highest bidder")
-	}
-	if MRC401ItemData.Owner == buyer {
+	// buyer is seller ?
+	if MRC401.Owner == buyerAddress {
 		return errors.New("3004,Owners cannot bid on auctions")
 	}
 
 	// sign check
-	if buyerWallet, err = GetAddressInfo(stub, buyer); err != nil {
+	if buyerWallet, err = GetAddressInfo(stub, buyerAddress); err != nil {
 		return err
 	}
-	if err = NonceCheck(&buyerWallet, tkey,
-		strings.Join([]string{mrc401id, amount, token, tkey}, "|"),
-		signature); err != nil {
+	if err = NonceCheck(&buyerWallet, args[5],
+		strings.Join([]string{args[1], args[2], args[3], args[5]}, "|"),
+		args[4]); err != nil {
 		return err
-	}
-
-	// token check.
-	if MRC401ItemData.AuctionToken != token {
-		return errors.New("3004,Only " + MRC401ItemData.AuctionToken + " tokens can be bid")
 	}
 
 	// sell price check
-	if _, err = util.ParsePositive(amount); err != nil {
+	if _, err = util.ParsePositive(args[2]); err != nil {
 		return err
 	}
-
-	if bidAmount, err = decimal.NewFromString(amount); err != nil {
+	if newBidPrice, err = decimal.NewFromString(args[2]); err != nil {
 		return errors.New("3004,The bid amount is incorrect. " + err.Error())
 	}
 
-	// get current price
-
-	buyNow, _ = decimal.NewFromString(MRC401ItemData.AuctionBuyNowPrice)
-
-	// first bidding ?
-	if MRC401ItemData.AuctionCurrentBidder == "" {
-		currentPrice, _ = decimal.NewFromString(MRC401ItemData.AuctionStartPrice)
-		if bidAmount.Cmp(currentPrice) < 0 {
-			return errors.New("3004,The bid amount must be equal to or greater than the starting price")
-		}
-	} else {
-		currentPrice, _ = decimal.NewFromString(MRC401ItemData.AuctionCurrentPrice)
-		if bidAmount.Cmp(currentPrice) < 1 {
-			return errors.New("3004,The bid amount must be greater than the current price")
-		}
+	// token check.
+	if MRC401.AuctionToken != args[3] {
+		return errors.New("3004,Only " + MRC401.AuctionToken + " tokens can be bid")
 	}
 
-	// check new bid price
+	// get price info
+	buyNow, _ = decimal.NewFromString(MRC401.AuctionBuyNowPrice)
+	bidUnit, _ = decimal.NewFromString(MRC401.AuctionBiddingUnit)
+	isBuynow = false
 	if !buyNow.IsZero() {
-		if bidAmount.Cmp(buyNow) > 0 {
+		if newBidPrice.Cmp(buyNow) == 0 {
+			isBuynow = true
+		} else if newBidPrice.Cmp(buyNow) > 0 {
 			return errors.New("3004,The bid amount must be less than or equal to the purchase buynow price")
 		}
 	}
 
-	// buynow
-	if !buyNow.IsZero() && bidAmount.Cmp(buyNow) == 0 {
-		isBuynow = true
+	if !isBuynow {
+		if MRC401.AuctionCurrentBidder == buyerAddress {
+			return errors.New("3004,You are already the highest bidder")
+		}
+	}
+
+	if util.IsAddress(MRC401.AuctionCurrentBidder) {
+		oldBidPrice, _ = decimal.NewFromString(MRC401.AuctionCurrentPrice)
+		if !isBuynow {
+			if newBidPrice.Sub(bidUnit).Cmp(oldBidPrice) < 0 {
+				return errors.New("3004,The bid amount must be greater than the current bid amount plus the bid unit")
+			}
+		}
+
+		refunderAddress = MRC401.AuctionCurrentBidder
+		// set payment info 2nd - Refund of previous bidder
+		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC401.Id, ToAddr: refunderAddress,
+			Amount: MRC401.AuctionCurrentPrice, TokenID: MRC401.AuctionToken, PayType: "mrc401_recv_refund"})
 	} else {
-		isBuynow = false
+		oldBidPrice, _ = decimal.NewFromString(MRC401.AuctionStartPrice)
+		if newBidPrice.Cmp(oldBidPrice) < 0 {
+			return errors.New("3004,The bid amount must be equal to or greater than the starting price")
+		}
+		refunderAddress = ""
 	}
 
 	// set payment info 1st - auction bid (buyer => mrc401)
-	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: buyer, ToAddr: mrc401id,
-		Amount: amount, TokenID: MRC401ItemData.AuctionToken, PayType: "mrc401_bid"})
-
-	// buyer token subtract & save
-	if err = MRC010Subtract(stub, &buyerWallet, MRC401ItemData.AuctionToken, amount, MRC010MT_Normal); err != nil {
-		return err
-	}
-
-	// if project owner buynow then add fee to project owner.
-	if isBuynow {
-		// get Project
-		if MRC400ProjectData, _, err = GetMRC400(stub, MRC401ItemData.MRC400); err != nil {
-			return err
-		}
-
-		if err = json.Unmarshal([]byte(buffer), &MRC400ProjectData); err != nil {
-			return errors.New("6205,MRC400 [" + mrc401id + "] is in the wrong data")
-		}
-
-		if MRC400ProjectData.Owner == buyer {
-
-			// owner sale ?
-			feeRate, _ = decimal.NewFromString(MRC401ItemData.SellFee)
-			Percent, _ = decimal.NewFromString("100")
-			feePrice = bidAmount.Mul(feeRate).Div(Percent).Floor()
-
-			// buyer token subtract & save
-			if err = MRC010Add(stub, &buyerWallet, MRC401ItemData.AuctionToken, feePrice.String(), 0); err != nil {
-				return err
-			}
-		}
-	}
-
-	if err = SetAddressInfo(stub, buyerWallet, "transfer_mrc401bid", []string{buyer, mrc401id, amount, MRC401ItemData.AuctionToken, signature, "0", "", mrc401id, tkey}); err != nil {
-		return err
-	}
-
-	// refund current bidder
-	if MRC401ItemData.AuctionCurrentBidder != "" {
-		// set payment info 2nd - Refund of previous bidder
-		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: MRC401ItemData.AuctionCurrentBidder,
-			Amount: MRC401ItemData.AuctionCurrentPrice, TokenID: MRC401ItemData.AuctionToken, PayType: "mrc401_recv_refund"})
-		if currentBidderWallet, err = GetAddressInfo(stub, MRC401ItemData.AuctionCurrentBidder); err != nil {
-			return err
-		}
-		if err = MRC010Add(stub, &currentBidderWallet, MRC401ItemData.AuctionToken, MRC401ItemData.AuctionCurrentPrice, 0); err != nil {
-			return err
-		}
-		if err = SetAddressInfo(stub, currentBidderWallet, "receive_mrc401refund",
-			[]string{mrc401id, MRC401ItemData.AuctionCurrentBidder, MRC401ItemData.AuctionCurrentPrice, MRC401ItemData.AuctionToken, signature, "0", "", mrc401id, tkey}); err != nil {
-			return err
-		}
-	}
+	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: buyerAddress, ToAddr: MRC401.Id,
+		Amount: newBidPrice.String(), TokenID: MRC401.AuctionToken, PayType: "mrc401_bid"})
 
 	// set new bidder
-	MRC401ItemData.AuctionCurrentPrice = amount
-	MRC401ItemData.AuctionCurrentBidder = buyer
+	MRC401.AuctionCurrentPrice = newBidPrice.String()
+	MRC401.AuctionCurrentBidder = buyerAddress
 
 	// buynow
 	if isBuynow {
-		return auctionFinish(stub, mrc401id, MRC401ItemData, PaymentInfo, isBuynow)
+		// get item info
+		if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
+			return err
+		}
+		return mrc401DexProcess(stub, MRC400, MRC401, buyerWallet, PaymentInfo, MRC401AT_Auction, args[3], args[4])
 	}
 
-	// save bid info
-	bidUnit, _ = decimal.NewFromString(MRC401ItemData.AuctionBiddingUnit)
-	diffPrice = bidAmount.Sub(currentPrice)
-	if diffPrice.Div(bidUnit).Floor().Mul(bidUnit).Cmp(diffPrice) != 0 {
-		return errors.New("3004,The bid amount must be greater than the current amount plus the bid units")
+	// not buynow
+	if err = MRC010Subtract(stub, &buyerWallet, MRC401.AuctionToken, newBidPrice.String(), MRC010MT_Normal); err != nil {
+		return err
+	}
+	if err = SetAddressInfo(stub, buyerWallet, "transfer_mrc401bid",
+		[]string{buyerAddress, MRC401.Id, newBidPrice.String(), MRC401.AuctionToken, args[3], "0", "", MRC401.Id, args[4]}); err != nil {
+		return err
 	}
 
-	if err = setMRC401(stub, mrc401id, MRC401ItemData, "mrc401_auctionbid", []string{mrc401id, buyer, util.JSONEncode(PaymentInfo), signature, tkey}); err != nil {
+	if util.IsAddress(refunderAddress) {
+		if refunderWallet, err = GetAddressInfo(stub, refunderAddress); err != nil {
+			return err
+		}
+		if err = MRC010Add(stub, &refunderWallet, MRC401.AuctionToken, oldBidPrice.String(), 0); err != nil {
+			return err
+		}
+		if err = SetAddressInfo(stub, refunderWallet, "receive_mrc401refund",
+			[]string{MRC401.Id, refunderAddress, oldBidPrice.String(), MRC401.AuctionToken, args[3],
+				"0", "", MRC401.Id, args[4]}); err != nil {
+			return err
+		}
+	}
+
+	if err = setMRC401(stub, MRC401, "mrc401_auctionbid", []string{MRC401.Id, MRC401.Owner, buyerAddress, util.JSONEncode(PaymentInfo), args[4], args[5]}); err != nil {
 		return err
 	}
 	return nil
@@ -1576,157 +2119,278 @@ func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, buyer, mrc401id, amount,
 // Mrc401AuctionFinish Mrc401AuctionFinish
 func Mrc401AuctionFinish(stub shim.ChaincodeStubInterface, mrc401id string) error {
 	var err error
+	var now = time.Now().Unix()
 
-	var MRC401ItemData TMRC401
+	var MRC400 TMRC400
+	var MRC401 TMRC401
+
+	var buyerWallet mtc.TWallet
 	var PaymentInfo []mtc.TDexPaymentInfo
 
 	// get item info
-	if MRC401ItemData, _, err = GetMRC401(stub, mrc401id); err != nil {
+	if MRC401, _, err = GetMRC401(stub, mrc401id); err != nil {
 		return err
 	}
-	PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 2)
-	return auctionFinish(stub, mrc401id, MRC401ItemData, PaymentInfo, false)
-}
-
-// auctionFinish auction finish or winningbid process
-func auctionFinish(stub shim.ChaincodeStubInterface, mrc401id string, MRC401ItemData TMRC401, PaymentInfo []mtc.TDexPaymentInfo, isBuynow bool) error {
-	var err error
-
-	var projectOwnerWallet mtc.TWallet
-	var sellerWallet mtc.TWallet
-
-	var MRC400ProjectData TMRC400
-	var now int64
-	var seller, buyer string
-	var jobType string
-
-	var payPrice decimal.Decimal     // Trade price
-	var feeRate decimal.Decimal      // Melting Fee(percents)    100% == 100
-	var Percent decimal.Decimal      // "100"  (Price * feeRate / Percent)
-	var receivePrice decimal.Decimal // The amount the owner will receive
-	var feePrice decimal.Decimal     // The amount the creator will receive
-
-	now = time.Now().Unix()
-
-	if isBuynow {
-		if MRC401ItemData.AuctionBuyNowPrice == "0" || MRC401ItemData.AuctionBuyNowPrice != MRC401ItemData.AuctionCurrentPrice {
-			return errors.New("3004,MRC401 [" + mrc401id + "] is not buynow item.")
-		}
-	} else {
-		// auction not expire ?
-		if MRC401ItemData.AuctionEnd > now {
-			return errors.New("3004,MRC401 [" + mrc401id + "] is under auction.")
-		}
+	if MRC401.AuctionDate == 0 || MRC401.AuctionEnd == 0 {
+		return errors.New("3004,MRC401 [" + mrc401id + "] is not auction")
+	}
+	if MRC401.AuctionEnd > now {
+		return errors.New("3004,It cannot be closed while the auction is pending")
+	} else if MRC401.AuctionDate == 0 {
+		return errors.New("3004,MRC401 is not auction item")
 	}
 
-	// save seller, buyer
-	seller = MRC401ItemData.Owner
-	buyer = MRC401ItemData.AuctionCurrentBidder
-
-	// auction fail.
-	if buyer == "" {
-		if MRC401ItemData.AuctionDate == 0 || MRC401ItemData.AuctionEnd == 0 {
-			return errors.New("3004,MRC401 [" + mrc401id + "] is not auction")
-		}
-
+	if MRC401.AuctionCurrentBidder == "" {
 		// clear auction data
-		MRC401ItemData.AuctionDate = 0
-		MRC401ItemData.AuctionEnd = 0
-		MRC401ItemData.AuctionToken = "0"
-		MRC401ItemData.AuctionBiddingUnit = "0"
-		MRC401ItemData.AuctionStartPrice = "0"
-		MRC401ItemData.AuctionBuyNowPrice = "0"
-		MRC401ItemData.AuctionCurrentPrice = "0"
-		MRC401ItemData.AuctionCurrentBidder = ""
-		if err = setMRC401(stub, mrc401id, MRC401ItemData, "mrc401_auctionfailure", []string{mrc401id, seller, "", util.JSONEncode(PaymentInfo), "", ""}); err != nil {
+		MRC401.AuctionDate = 0
+		MRC401.AuctionEnd = 0
+		MRC401.AuctionToken = "0"
+		MRC401.AuctionBiddingUnit = "0"
+		MRC401.AuctionStartPrice = "0"
+		MRC401.AuctionBuyNowPrice = "0"
+		MRC401.AuctionCurrentPrice = "0"
+		MRC401.AuctionCurrentBidder = ""
+		if err = setMRC401(stub, MRC401, "mrc401_auctionfailure", []string{
+			MRC401.Id, MRC401.Owner, "", util.JSONEncode(PaymentInfo), "", ""}); err != nil {
 			return err
 		}
 		return nil
-	}
-
-	// get Project
-	if MRC400ProjectData, _, err = GetMRC400(stub, MRC401ItemData.MRC400); err != nil {
-		return err
-	}
-
-	// owner sale ?
-	payPrice, _ = decimal.NewFromString(MRC401ItemData.AuctionCurrentPrice)
-	if seller == MRC400ProjectData.Owner {
-		feePrice = decimal.Zero
-		receivePrice = payPrice
 	} else {
-		feeRate, _ = decimal.NewFromString(MRC401ItemData.SellFee)
-		Percent, _ = decimal.NewFromString("100")
-		feePrice = payPrice.Mul(feeRate).Div(Percent).Floor()
-		receivePrice = payPrice.Sub(feePrice)
-	}
-
-	if feePrice.IsPositive() {
-		// set payment info 1st or 3nd - fee (mrc401 -> project owner)
-		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: MRC400ProjectData.Owner,
-			Amount: feePrice.String(), TokenID: MRC401ItemData.AuctionToken, PayType: "mrc401_recv_fee"})
-
-		// If the project owner is buynow, it has already paid the fee.
-		if MRC400ProjectData.Owner != buyer || !isBuynow {
-			// get Proejct Owner
-			if projectOwnerWallet, err = GetAddressInfo(stub, MRC400ProjectData.Owner); err != nil {
-				return err
-			}
-
-			// Add trade fee
-			if err = MRC010Add(stub, &projectOwnerWallet, MRC401ItemData.AuctionToken, feePrice.String(), 0); err != nil {
-				return err
-			}
-			// Save Project Owner
-			if err = SetAddressInfo(stub, projectOwnerWallet, "receive_mrc401fee", []string{buyer, MRC400ProjectData.Owner, feePrice.String(), MRC401ItemData.SellToken, "", "0", "", mrc401id, ""}); err != nil {
-				return err
-			}
-		}
-	}
-	if receivePrice.IsPositive() {
-		// get owner data for trade price recv
-		if sellerWallet, err = GetAddressInfo(stub, seller); err != nil {
+		if buyerWallet, err = GetAddressInfo(stub, MRC401.AuctionCurrentBidder); err != nil {
 			return err
 		}
-
-		// add remain price
-		if err = MRC010Add(stub, &sellerWallet, MRC401ItemData.AuctionToken, receivePrice.String(), 0); err != nil {
+		if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
 			return err
 		}
+		return mrc401DexProcess(stub, MRC400, MRC401, buyerWallet, PaymentInfo, MRC401AT_Auction, "", "")
+	}
+}
 
-		// save owner info
-		if err = SetAddressInfo(stub, sellerWallet, "receive_mrc401auction", []string{buyer, seller, receivePrice.String(), MRC401ItemData.SellToken, "", "0", "", mrc401id, ""}); err != nil {
-			return err
+// 1. 지급 내역 계산
+// 2. 주소별 지급 내역 저장
+// 3. DEx 저장.
+func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 TMRC401, buyerWallet mtc.TWallet,
+	PaymentInfo []mtc.TDexPaymentInfo, tradeType MRC401ActionType, sign, tkey string) error {
+	var receiveAmount, paymentAmount decimal.Decimal
+	var paymentToken string
+	var commission decimal.Decimal
+	var buyerAddress string
+	var walletData mtc.TWallet
+	var addrParams []string
+	var err error
+	var checkAddr string
+	var jobType, sellerType, mrc401JobType string
+	type RecvMapType struct {
+		fromAddr    string
+		toAddr      string
+		amount      decimal.Decimal
+		tradeAmount string
+		jobType     string
+	}
+	var RecvMap map[string]RecvMapType
+
+	fmt.Println("Call mrc401DexProcess")
+	fmt.Println("MRC400", MRC400)
+	fmt.Println("MRC401", MRC401)
+	fmt.Println("buyerWallet", buyerWallet)
+	fmt.Println("PaymentInfo", PaymentInfo)
+	fmt.Println("tradeType", tradeType)
+	fmt.Println("sign", sign)
+	fmt.Println("tkey", tkey)
+	if tradeType == MRC401AT_Auction {
+		buyerAddress = MRC401.AuctionCurrentBidder
+		sellerType = "mrc401_recv_auction"
+		if MRC401.AuctionCurrentPrice == MRC401.AuctionBuyNowPrice {
+			mrc401JobType = "mrc401_auctionbuynow"
+		} else {
+			mrc401JobType = "mrc401_auctionwinning"
 		}
-		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: seller,
-			Amount: receivePrice.String(), TokenID: MRC401ItemData.AuctionToken, PayType: "mrc401_recv_auction"})
+		paymentToken = MRC401.AuctionToken
+		paymentAmount, _ = decimal.NewFromString(MRC401.AuctionCurrentPrice)
+
+		// set last trade info
+		MRC401.LastTradeDate = time.Now().Unix()
+		MRC401.LastTradeAmount = MRC401.AuctionCurrentPrice
+		MRC401.LastTradeToken = MRC401.AuctionToken
+		MRC401.LastTradeType = "Auction"
+	} else if tradeType == MRC401AT_Buy {
+		buyerAddress = buyerWallet.Id
+		sellerType = "mrc401_recv_sell"
+		mrc401JobType = "mrc401_buy"
+		paymentToken = MRC401.SellToken
+		paymentAmount, _ = decimal.NewFromString(MRC401.SellPrice)
+
+		// set last trade info
+		MRC401.LastTradeDate = time.Now().Unix()
+		MRC401.LastTradeAmount = MRC401.SellPrice
+		MRC401.LastTradeToken = MRC401.SellToken
+		MRC401.LastTradeType = "Sell"
 	}
 
-	MRC401ItemData.Owner = buyer
+	receiveAmount = paymentAmount // seller receive amount
 
-	// set last trade info
-	MRC401ItemData.LastTradeDate = time.Now().Unix()
-	MRC401ItemData.LastTradeAmount = MRC401ItemData.AuctionCurrentPrice
-	MRC401ItemData.LastTradeToken = MRC401ItemData.AuctionToken
-	MRC401ItemData.LastTradeType = "Auction"
+	// 3. creator commission calc
+	if commission, err = DexFeeCalc(paymentAmount, MRC401.SellFee); err == nil {
+		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC401.Id, ToAddr: MRC400.Owner,
+			Amount: commission.String(), TokenID: paymentToken, PayType: "mrc401_recv_fee_creator"})
+		// subtract seller receive amount
+		receiveAmount = receiveAmount.Sub(commission)
+	}
+	fmt.Println("Creator COmmission", commission.String())
+
+	// 4. platform commission calc
+	if util.IsAddress(MRC401.PlatformAddress) {
+		if commission, err = DexFeeCalc(paymentAmount, MRC401.PlatformCommission); err == nil {
+			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC401.Id, ToAddr: MRC401.PlatformAddress,
+				Amount: commission.String(), TokenID: paymentToken, PayType: "mrc401_recv_fee_platform"})
+			// subtract seller receive amount
+			receiveAmount = receiveAmount.Sub(commission)
+		}
+	}
+	fmt.Println("PlatformAddress COmmission", commission.String())
+
+	// 5. shareholder commission calc
+	for shareholderAddress, shcomm := range MRC401.ShareHolder {
+		if commission, err = DexFeeCalc(paymentAmount, shcomm); err == nil {
+			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC401.Id, ToAddr: shareholderAddress,
+				Amount: commission.String(), TokenID: paymentToken, PayType: "mrc401_recv_fee_shareholder"})
+			// subtract seller receive amount
+			receiveAmount = receiveAmount.Sub(commission)
+			fmt.Println("ShareHolder COmmission", shareholderAddress, commission.String())
+		}
+	}
+
+	// set seller receive amount
+	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC401.Id, ToAddr: MRC401.Owner,
+		Amount: receiveAmount.String(), TokenID: MRC401.SellToken, PayType: sellerType})
+
+	// payinfo grouping
+	RecvMap = make(map[string]RecvMapType)
+	Nev, _ := decimal.NewFromString("-1")
+
+	fmt.Println("PaymentInfo", PaymentInfo)
+	for _, pi := range PaymentInfo {
+		tAmount, _ := decimal.NewFromString(pi.Amount)
+		if (pi.PayType == "mrc401_bid") || (pi.PayType == "mrc401_buy") {
+			tAmount = tAmount.Mul(Nev)
+			checkAddr = pi.FromAddr
+		} else {
+			checkAddr = pi.ToAddr
+		}
+
+		if dt, exists := RecvMap[checkAddr]; !exists {
+			RecvMap[checkAddr] = RecvMapType{
+				fromAddr:    pi.FromAddr,
+				toAddr:      pi.ToAddr,
+				amount:      tAmount,
+				jobType:     pi.PayType,
+				tradeAmount: pi.TradeAmount,
+			}
+			fmt.Println("Line 2309")
+			fmt.Println("RecvMap[checkAddr] 1 ", checkAddr, RecvMap[checkAddr])
+		} else {
+			// overwrite mrc401_recv_fee_* type
+			if strings.Index(dt.jobType, "mrc401_recv_fee_") == 0 {
+				dt.jobType = pi.PayType
+				dt.fromAddr = pi.FromAddr
+				dt.toAddr = pi.ToAddr
+
+			} else if strings.Index(pi.PayType, "mrc401_recv_fee_") != 0 {
+				dt.jobType = pi.PayType
+				dt.fromAddr = pi.FromAddr
+				dt.toAddr = pi.ToAddr
+				// overwrite mrc401_recv_refund type
+			} else if dt.jobType == "mrc401_recv_refund" {
+				dt.jobType = pi.PayType
+				dt.fromAddr = pi.FromAddr
+				dt.toAddr = pi.ToAddr
+			}
+			if pi.TradeAmount != "" && dt.tradeAmount == "" {
+				dt.tradeAmount = pi.TradeAmount
+			}
+			dt.amount = dt.amount.Add(tAmount)
+			RecvMap[checkAddr] = dt
+			fmt.Println("Line 2334")
+			fmt.Println("RecvMap[checkAddr] 2 ", checkAddr, RecvMap[checkAddr])
+		}
+	}
+
+	// payinfo save
+	for _, v := range RecvMap {
+		switch v.jobType {
+		case "mrc401_buy": // buyer => dex	구매비용 지불(MRC401)
+			jobType = "transfer_mrc401buy"
+		case "mrc401_bid": // buyer => dex	입찰 비용 지불(MRC401)
+			jobType = "transfer_mrc401bid"
+		case "mrc401_recv_sell": // dex => seller	판매자 대금 받음(MRC401)
+			jobType = "receive_mrc401sell"
+		case "mrc401_recv_auction": // dex => seller	경매 낙찰금액 받음(MRC401)
+			jobType = "receive_mrc401auction"
+		case "mrc401_recv_refund": // dex=>refund	입찰 대금 환불(MRC401)
+			jobType = "receive_mrc401refund"
+		case "mrc401_recv_fee_creator": // dex => creator(MRC401)
+			jobType = "receive_mrc401fee"
+		case "mrc401_recv_fee_platform": // dex => platform(MRC401)
+			jobType = "receive_mrc401fee"
+		case "mrc401_recv_fee_shareholder": // dex => shareholder(MRC401)
+			jobType = "receive_mrc401fee"
+		}
+
+		// add mrc401 buy amount to buyer
+		if (v.jobType == "mrc401_bid") || (v.jobType == "mrc401_buy") {
+			checkAddr = v.fromAddr
+		} else {
+			checkAddr = v.toAddr
+		}
+
+		if (checkAddr == buyerWallet.Id) || (checkAddr == MRC401.AuctionCurrentBidder) {
+			walletData = buyerWallet
+		} else {
+			if walletData, err = GetAddressInfo(stub, checkAddr); err != nil {
+				return err
+			}
+		}
+		if v.amount.Cmp(decimal.Zero) < 0 {
+			fmt.Println("Subtract", walletData.Id, paymentToken, v.amount.Abs().String())
+			if err = MRC010Subtract(stub, &walletData, paymentToken, v.amount.Abs().String(), MRC010MT_Normal); err != nil {
+				return err
+			}
+		} else if v.amount.Cmp(decimal.Zero) > 0 {
+			fmt.Println("Add", walletData.Id, paymentToken, v.amount.Abs().String())
+			if err = MRC010Add(stub, &walletData, paymentToken, v.amount.Abs().String(), 0); err != nil {
+				return err
+			}
+		}
+
+		addrParams = []string{v.fromAddr, v.toAddr, v.amount.Abs().String(), paymentToken, sign, "0", v.tradeAmount, MRC401.Id, tkey}
+		fmt.Println("==============================================")
+		fmt.Println("SetAddressINfo", jobType, walletData, addrParams)
+		if err = SetAddressInfo(stub, walletData, jobType, addrParams); err != nil {
+			return err
+		}
+	}
 
 	// clear auction data
-	MRC401ItemData.AuctionDate = 0
-	MRC401ItemData.AuctionEnd = 0
-	MRC401ItemData.AuctionToken = "0"
-	MRC401ItemData.AuctionBiddingUnit = "0"
-	MRC401ItemData.AuctionStartPrice = "0"
-	MRC401ItemData.AuctionBuyNowPrice = "0"
-	MRC401ItemData.AuctionCurrentPrice = "0"
-	MRC401ItemData.AuctionCurrentBidder = ""
+	MRC401.AuctionDate = 0
+	MRC401.AuctionEnd = 0
+	MRC401.AuctionToken = "0"
+	MRC401.AuctionBiddingUnit = "0"
+	MRC401.AuctionStartPrice = "0"
+	MRC401.AuctionBuyNowPrice = "0"
+	MRC401.AuctionCurrentPrice = "0"
+	MRC401.AuctionCurrentBidder = ""
+	// clear sell data
+	MRC401.SellDate = 0
+	MRC401.SellPrice = "0"
+	MRC401.SellToken = "0"
 
-	if isBuynow {
-		jobType = "mrc401_auctionbuynow"
-	} else {
-		jobType = "mrc401_auctionwinning"
-	}
-	if err = setMRC401(stub, mrc401id, MRC401ItemData, jobType, []string{mrc401id, buyer, util.JSONEncode(PaymentInfo), "", ""}); err != nil {
-		return err
-	}
+	// dex save
+	addrParams = []string{MRC401.Id, MRC401.Owner, buyerAddress, util.JSONEncode(PaymentInfo), MRC401.Id}
+	// mrc401 owner change
+	MRC401.Owner = buyerAddress
+	fmt.Println("==============================================")
+	fmt.Println("setMRC401", mrc401JobType, MRC401, addrParams)
+	setMRC401(stub, MRC401, mrc401JobType, addrParams)
+
 	return nil
 }

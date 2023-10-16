@@ -11,6 +11,6 @@ require (
 )
 
 replace (
-	inblock/metacoin/mtc => ./mtc
-	inblock/metacoin/util => ./util
+	inblock/metacoin/mtc => ./mtc/mtc
+	inblock/metacoin/util => ./util/util
 )

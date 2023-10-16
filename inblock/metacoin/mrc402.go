@@ -1478,9 +1478,9 @@ func Mrc402Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 	if dex.AuctionEndDate <= 0 {
 		dex.AuctionEndDate = dex.AuctionStartDate + 86400
-	} else if (dex.AuctionEndDate - now) < 3600 {
+	} else if (dex.AuctionEndDate - dex.AuctionStartDate) < 3600 {
 		return errors.New("3005,Auction duration is at least 1 hour")
-	} else if (dex.AuctionEndDate - now) > 1814400 {
+	} else if (dex.AuctionEndDate - dex.AuctionStartDate) > 1814400 {
 		return errors.New("3005,The auction period is up to 7 days")
 	}
 

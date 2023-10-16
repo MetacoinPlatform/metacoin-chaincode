@@ -473,12 +473,12 @@ func GetNonce(stub shim.ChaincodeStubInterface, address string) (string, error) 
 func NonceCheck(walletData *mtc.TWallet, nonce, Data, signature string) error {
 	if walletData.Nonce != "" {
 		if nonce != walletData.Nonce {
-			return errors.New("1102,nonce error")
+			return errors.New("1102," + walletData.Id + " nonce error")
 		}
 	} else {
 		// Compatibility code for old wallet users who do not use nonce values
 		if nonce != strconv.FormatInt(walletData.JobDate, 10) {
-			return errors.New("1102,nonce error")
+			return errors.New("1102," + walletData.Id + " nonce error")
 		}
 	}
 

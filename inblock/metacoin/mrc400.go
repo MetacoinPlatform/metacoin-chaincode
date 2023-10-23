@@ -1936,7 +1936,7 @@ func Mrc401Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	// save owner info for nonce update
-	if err = SetAddressInfo(stub, MRC401Seller, "mrc401auction", []string{args[3], args[0], args[2], args[3]}); err != nil {
+	if err = SetAddressInfo(stub, MRC401Seller, "mrc401auction", []string{args[1], args[0], args[2], args[3]}); err != nil {
 		return err
 	}
 	return nil

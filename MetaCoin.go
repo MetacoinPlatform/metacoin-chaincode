@@ -474,7 +474,7 @@ func (t *MetacoinChainCode) Invoke(stub shim.ChaincodeStubInterface) peer.Respon
 		}
 
 	case "mrc401createtrade":
-		if err = metacoin.MRC401CreateTrade(stub, args); err != nil {
+		if err = metacoin.Mrc401CreateTrade(stub, args); err != nil {
 			return shim.Error(err.Error())
 		}
 

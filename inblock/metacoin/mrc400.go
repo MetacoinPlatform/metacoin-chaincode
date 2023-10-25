@@ -1003,7 +1003,7 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, args []string) error {
 	return nil
 }
 
-func MRC401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
+func Mrc401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
 	var MRC401Creator mtc.TWallet
 	var now int64
@@ -1285,7 +1285,7 @@ func MRC401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
 		FromAddr: buyerWallet.Id, ToAddr: MRC401.Id,
 		Amount: MRC401.SellPrice, TokenID: MRC401.SellToken, PayType: "mrc401_buy"})
 
-	return mrc401DexProcess(stub, MRC400, MRC401, MRC401Creator, buyerWallet, PaymentInfo, MRC401AT_Buy, args[2], args[3])
+	return mrc401DexProcess(stub, MRC400, MRC401, MRC401Creator, buyerWallet, PaymentInfo, MRC401AT_Buy, args[10], args[11])
 }
 
 // Mrc401Transfer transfer
@@ -2146,7 +2146,8 @@ func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 		if MRC400, _, err = GetMRC400(stub, MRC401.MRC400); err != nil {
 			return err
 		}
-		return mrc401DexProcess(stub, MRC400, MRC401, mtc.TWallet{}, buyerWallet, PaymentInfo, MRC401AT_Auction, MRC401.AuctionToken, args[3])
+		return mrc401DexProcess(stub, MRC400, MRC401, mtc.TWallet{}, buyerWallet,
+			PaymentInfo, MRC401AT_Auction, args[3], args[4])
 	}
 
 	// not buynow
@@ -2173,7 +2174,7 @@ func Mrc401AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	if err = setMRC401(stub, MRC401, "mrc401_auctionbid",
-		[]string{MRC401.Id, MRC401.Owner, buyerAddress, util.JSONEncode(PaymentInfo), args[3], args[4]}); err != nil {
+		[]string{MRC401.Id, buyerAddress, util.JSONEncode(PaymentInfo), args[3], args[4]}); err != nil {
 		return err
 	}
 	return nil
@@ -2214,7 +2215,7 @@ func Mrc401AuctionFinish(stub shim.ChaincodeStubInterface, mrc401id string) erro
 		MRC401.AuctionCurrentPrice = "0"
 		MRC401.AuctionCurrentBidder = ""
 		if err = setMRC401(stub, MRC401, "mrc401_auctionfailure", []string{
-			MRC401.Id, MRC401.Owner, "", util.JSONEncode(PaymentInfo), "", ""}); err != nil {
+			MRC401.Id, MRC401.Owner, ""}); err != nil {
 			return err
 		}
 		return nil
@@ -2318,7 +2319,7 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 
 	// set seller receive amount
 	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: MRC401.Id, ToAddr: MRC401.Owner,
-		Amount: receiveAmount.String(), TokenID: MRC401.SellToken, PayType: sellerType})
+		Amount: receiveAmount.String(), TokenID: paymentToken, PayType: sellerType})
 
 	// payinfo grouping
 	RecvMap = make(map[string]RecvMapType)

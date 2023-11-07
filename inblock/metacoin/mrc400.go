@@ -1711,10 +1711,7 @@ func Mrc401Melt(stub shim.ChaincodeStubInterface, mrc401id, signature, tkey stri
 			// set paymentinfo info - 1st melt fee(mrc401 -> project owner)
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: MRC400ProjectData.Owner,
 				Amount: feePrice.String(), TokenID: MRC401ItemData.InititalToken, PayType: "mrc401_recv_meltfee"})
-			if MRC400ProjectData.Owner == itemOwner {
-				// If the item owner is the project owner, the amount received is the initial price.
-				receivePrice = InititalPrice
-			} else {
+			if MRC400ProjectData.Owner != itemOwner {
 				// get Proejct Owner
 				if projectOwnerWallet, err = GetAddressInfo(stub, MRC400ProjectData.Owner); err != nil {
 					return err
@@ -1736,15 +1733,27 @@ func Mrc401Melt(stub shim.ChaincodeStubInterface, mrc401id, signature, tkey stri
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: mrc401id, ToAddr: itemOwner,
 				Amount: receivePrice.String(), TokenID: MRC401ItemData.InititalToken, PayType: "mrc401_recv_melt"})
 
-			// add remain price
-			if err = MRC010Add(stub, &itemOwnerWallet, MRC401ItemData.InititalToken, receivePrice.String(), 0); err != nil {
-				return err
-			}
-
 			// save to item owner
-			if err = SetAddressInfo(stub, itemOwnerWallet, "receive_melt",
-				[]string{mrc401id, itemOwner, receivePrice.String(), MRC401ItemData.InititalToken, signature, "0", "", mrc401id, tkey}); err != nil {
-				return err
+			if MRC400ProjectData.Owner == itemOwner {
+				// add remain price
+				if err = MRC010Add(stub, &itemOwnerWallet, MRC401ItemData.InititalToken, InititalPrice.String(), 0); err != nil {
+					return err
+				}
+
+				if err = SetAddressInfo(stub, itemOwnerWallet, "receive_melt",
+					[]string{mrc401id, itemOwner, InititalPrice.String(), MRC401ItemData.InititalToken, signature, "0", "", mrc401id, tkey}); err != nil {
+					return err
+				}
+			} else {
+				// add remain price
+				if err = MRC010Add(stub, &itemOwnerWallet, MRC401ItemData.InititalToken, receivePrice.String(), 0); err != nil {
+					return err
+				}
+
+				if err = SetAddressInfo(stub, itemOwnerWallet, "receive_melt",
+					[]string{mrc401id, itemOwner, receivePrice.String(), MRC401ItemData.InititalToken, signature, "0", "", mrc401id, tkey}); err != nil {
+					return err
+				}
 			}
 		}
 	}

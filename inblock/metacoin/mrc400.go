@@ -882,7 +882,6 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, args []string) error {
 	var MRC401Job []TMRC401CreateUpdate
 	var logData []string
 	var err error
-	var isCreator bool
 
 	var keyCheck map[string]int
 
@@ -957,26 +956,24 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, args []string) error {
 			return errors.New("3005," + MRC401Job[index].ItemID + " item GroupID error : " + err.Error())
 		}
 
-		if isCreator {
-			if err = util.NumericDataCheck(MRC401Job[index].SellFee, &MRC401.SellFee, "0", "99.9999", 4, false); err != nil {
-				return errors.New("3005," + MRC401Job[index].ItemID + " item SellFee error : " + err.Error())
+		if err = util.NumericDataCheck(MRC401Job[index].SellFee, &MRC401.SellFee, "0", "99.9999", 4, false); err != nil {
+			return errors.New("3005," + MRC401Job[index].ItemID + " item SellFee error : " + err.Error())
+		}
+		if err = util.NumericDataCheck(MRC401Job[index].MeltingFee, &MRC401.MeltingFee, "0", "99.9999", 4, false); err != nil {
+			return errors.New("3005," + MRC401Job[index].ItemID + " item MeltingFee error : " + err.Error())
+		}
+
+		if MRC401.Transferable != "Temprary" {
+			if MRC401Job[index].Transferable != MRC401.Transferable {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value cannot be change")
 			}
-			if err = util.NumericDataCheck(MRC401Job[index].MeltingFee, &MRC401.MeltingFee, "0", "99.9999", 4, false); err != nil {
-				return errors.New("3005," + MRC401Job[index].ItemID + " item MeltingFee error : " + err.Error())
+		} else {
+			if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401.Transferable, "string", 1, 128, false); err != nil {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
 			}
 
-			if MRC401.Transferable != "Temprary" {
-				if MRC401Job[index].Transferable != MRC401.Transferable {
-					return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value cannot be change")
-				}
-			} else {
-				if err = util.DataAssign(MRC401Job[index].Transferable, &MRC401.Transferable, "string", 1, 128, false); err != nil {
-					return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
-				}
-
-				if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temprary" {
-					return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
-				}
+			if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temprary" {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
 			}
 		}
 

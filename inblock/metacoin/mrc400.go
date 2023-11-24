@@ -483,22 +483,22 @@ func Mrc400Update(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	// 5 item data url
-	if err = util.DataAssign(args[5], &MRC400.ItemURL, "url", 1, 255, false); err != nil {
+	if err = util.DataAssign(args[5], &MRC400.ItemURL, "url", 0, 255, false); err != nil {
 		return errors.New("3005,ItemURL must be 1 to 1024 characters long URL")
 	}
 
 	// 6 item image url
-	if err = util.DataAssign(args[6], &MRC400.ItemImageURL, "url", 1, 255, false); err != nil {
+	if err = util.DataAssign(args[6], &MRC400.ItemImageURL, "url", 0, 255, false); err != nil {
 		return errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
 	}
 
 	// 7 category
-	if err = util.DataAssign(args[7], &MRC400.Category, "string", 1, 64, false); err != nil {
+	if err = util.DataAssign(args[7], &MRC400.Category, "string", 0, 64, false); err != nil {
 		return errors.New("3005,Category must be 1 to 64 characters long")
 	}
 
 	// 8 description
-	if err = util.DataAssign(args[8], &MRC400.Description, "string", 1, 40960, false); err != nil {
+	if err = util.DataAssign(args[8], &MRC400.Description, "string", 0, 40960, false); err != nil {
 		return errors.New("3005,Description must be 1 to 40960 characters long")
 	}
 
@@ -1068,6 +1068,15 @@ func Mrc401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
 		return errors.New("3005,Token id " + args[5] + " error : " + err.Error())
 	}
 
+	// block self trade
+	if buyerWallet.Id == MRC400.Owner {
+		return errors.New("3004,MRC400 owner cannot purchase items sold by yourself")
+	}
+	// block self trade
+	if buyerWallet.Id == MRC401Creator.Id {
+		return errors.New("3004,MRC401 creator cannot purchase items sold by yourself")
+	}
+
 	// ================================================
 	// MRC401 Create
 	// ================================================
@@ -1266,11 +1275,6 @@ func Mrc401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
 	// =========================
 	// buy process
 	// =========================
-
-	// block self trade
-	if buyerWallet.Id == MRC401.Owner {
-		return errors.New("3004,You cannot purchase items sold by yourself")
-	}
 
 	// set payment info 1st - buy(buyer => mrc401)
 	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{
@@ -2267,6 +2271,7 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 		tokenID     string
 	}
 	var RecvMap map[string]RecvMapType
+	SubtractJob := []string{"mrc401_bid", "mrc401_buy", "mrc401_create", "mrc401_createtrade", "mrc401_createtrade_buy"}
 
 	if tradeType == MRC401AT_Auction {
 		buyerAddress = MRC401.AuctionCurrentBidder
@@ -2342,9 +2347,8 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 
 	for _, pi := range PaymentInfo {
 		// mrc401_create may have a different coin, and has already been processed in the createtrade function.
-
 		tAmount, _ := decimal.NewFromString(pi.Amount)
-		if (pi.PayType == "mrc401_bid") || (pi.PayType == "mrc401_buy") || (pi.PayType == "mrc401_create") || (pi.PayType == "mrc401_createtrade") {
+		if util.Contains(SubtractJob, pi.PayType) {
 			tAmount = tAmount.Mul(Nev)
 			checkAddr = pi.FromAddr
 		} else {
@@ -2352,22 +2356,24 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 		}
 
 		if dt, exists := RecvMap[checkAddr]; !exists {
+			// create initial reserve
 			if pi.PayType == "mrc401_create" || pi.PayType == "mrc401_createtrade" {
 				RecvMap[checkAddr] = RecvMapType{
 					fromAddr:    pi.FromAddr,
 					toAddr:      pi.ToAddr,
-					amount:      decimal.Zero,
 					jobType:     pi.PayType,
 					tradeAmount: "",
+					amount:      decimal.Zero,
 					tokenID:     pi.TokenID,
 				}
 			} else {
 				RecvMap[checkAddr] = RecvMapType{
 					fromAddr:    pi.FromAddr,
 					toAddr:      pi.ToAddr,
-					amount:      tAmount,
 					jobType:     pi.PayType,
 					tradeAmount: pi.TradeAmount,
+					amount:      tAmount,
+					tokenID:     paymentToken,
 				}
 			}
 		} else {
@@ -2409,8 +2415,11 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 		case "mrc401_buy": // buyer => dex	구매비용 지불(MRC401)
 			jobType = "transfer_mrc401buy"
 			checkAddr = v.fromAddr
-		case "mrc401_createtrade": // buyer => dex	구매비용 지불(MRC401) (mrc401 createtrade)
-			jobType = "transfer_mrc401createbuy"
+		case "mrc401_createtrade_buy": // buyer => dex	구매비용 지불(MRC401) (mrc401 createtrade)
+			jobType = "transfer_mrc401createtrade"
+			checkAddr = v.fromAddr
+		case "mrc401_createtrade": // create 초기 금액
+			jobType = "transfer_mrc401create"
 			checkAddr = v.fromAddr
 		case "mrc401_bid": // buyer => dex	입찰 비용 지불(MRC401)
 			jobType = "transfer_mrc401bid"
@@ -2449,6 +2458,7 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 				return err
 			}
 		}
+
 		if v.amount.Cmp(decimal.Zero) < 0 {
 			if err = MRC010Subtract(stub, &walletData, paymentToken, v.amount.Abs().String(), MRC010MT_Normal); err != nil {
 				return err
@@ -2459,7 +2469,7 @@ func mrc401DexProcess(stub shim.ChaincodeStubInterface, MRC400 TMRC400, MRC401 T
 			}
 		}
 
-		if v.jobType == "mrc401_create" {
+		if (v.jobType == "mrc401_create") || (v.jobType == "mrc401_createtrade") {
 			addrParams = []string{v.toAddr, v.fromAddr, v.amount.Abs().String(), v.tokenID, sign,
 				"0", v.tradeAmount, MRC401.Id, tkey}
 

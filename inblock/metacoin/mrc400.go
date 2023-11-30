@@ -123,7 +123,7 @@ type TMRC401 struct {
 	InititalToken        string `json:"initial_token"`   // 초기 판매 토큰
 	MeltingFee           string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
 	MeltingDate          int64  `json:"melting_date"`    // Write Once 삭제 일시 0 이면 미 삭제,
-	Transferable         string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	Transferable         string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temporary(지금은 가능 - 불가능으로 변경 될 수 있음)
 	SellDate             int64  `json:"sell_date"`       // 판매 시작 일시 0 이면 미 판매
 	SellFee              string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
 	SellPrice            string `json:"sell_price"`      // 판매 금액
@@ -162,7 +162,7 @@ type TMRC401CreateUpdate struct {
 	InititalReserve string `json:"initial_reserve"` // 초기 판매 금액
 	InititalToken   string `json:"initial_token"`   // 초기 판매 토큰
 	MeltingFee      string `json:"melting_fee"`     // 멜팅 수수료(0.0001~ 99.9999%)
-	Transferable    string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temprary(지금은 가능 - 불가능으로 변경 될 수 있음)
+	Transferable    string `json:"transferable"`    // 양도 가능 여부 : Permanent(가능), Bound(불가), Temporary(지금은 가능 - 불가능으로 변경 될 수 있음)
 	SellFee         string `json:"sell_fee"`        // read only 이체 수수료 비율(0.0001~ 99.9999%)
 	// add 2023. 9
 	ShareHolder map[string]string `json:"shareholder"` // { 저작권자 주소 : 판매/경매시 해당 주소가 가져가는 수수료 (0~10%)}, 최대 5명
@@ -802,8 +802,8 @@ func Mrc401Create(stub shim.ChaincodeStubInterface, args []string) error {
 			return errors.New("3005," + util.GetOrdNumber(index) + " item Transferable error : " + err.Error())
 		}
 
-		if MRC401ItemData.Transferable != "Permanent" && MRC401ItemData.Transferable != "Bound" && MRC401ItemData.Transferable != "Temprary" {
-			return errors.New("3005," + util.GetOrdNumber(index) + " item Transferable value is Permanent, Bound, Temprary ")
+		if MRC401ItemData.Transferable != "Permanent" && MRC401ItemData.Transferable != "Bound" && MRC401ItemData.Transferable != "Temporary" {
+			return errors.New("3005," + util.GetOrdNumber(index) + " item Transferable value is Permanent, Bound, Temporary ")
 		}
 
 		if err = util.NumericDataCheck(MRC401JobList[index].SellFee, &MRC401ItemData.SellFee, "0", "99.9999", 4, false); err != nil {
@@ -963,7 +963,7 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, args []string) error {
 			return errors.New("3005," + MRC401Job[index].ItemID + " item MeltingFee error : " + err.Error())
 		}
 
-		if MRC401.Transferable != "Temprary" {
+		if MRC401.Transferable != "Temporary" && MRC401.Transferable != "Temprary" {
 			if MRC401Job[index].Transferable != MRC401.Transferable {
 				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value cannot be change")
 			}
@@ -972,8 +972,8 @@ func Mrc401Update(stub shim.ChaincodeStubInterface, args []string) error {
 				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable error : " + err.Error())
 			}
 
-			if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temprary" {
-				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temprary ")
+			if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temporary" {
+				return errors.New("3005," + MRC401Job[index].ItemID + " item Transferable value is Permanent, Bound, Temporary")
 			}
 		}
 
@@ -1166,8 +1166,8 @@ func Mrc401CreateTrade(stub shim.ChaincodeStubInterface, args []string) error {
 		return errors.New("3005,Transferable error : " + err.Error())
 	}
 
-	if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temprary" {
-		return errors.New("3005,Transferable value is Permanent, Bound, Temprary ")
+	if MRC401.Transferable != "Permanent" && MRC401.Transferable != "Bound" && MRC401.Transferable != "Temporary" {
+		return errors.New("3005,Transferable value is Permanent, Bound, Temporary ")
 	}
 
 	if err = util.NumericDataCheck(MRC401Job.SellFee, &MRC401.SellFee, "0", "99.9999", 4, false); err != nil {

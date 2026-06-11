@@ -581,7 +581,7 @@ func setMRC400(stub shim.ChaincodeStubInterface, MRC400 TMRC400, jobType string,
 	var argdat []byte
 
 	if strings.Index(MRC400.Id, "MRC400_") != 0 || len(MRC400.Id) != 40 {
-		return errors.New("6102,invalid MRC401 data address")
+		return errors.New("6102,invalid MRC400 data address")
 	}
 
 	MRC400.JobType = jobType
@@ -591,11 +591,11 @@ func setMRC400(stub shim.ChaincodeStubInterface, MRC400 TMRC400, jobType string,
 	}
 
 	if argdat, err = json.Marshal(MRC400); err != nil {
-		return errors.New("3209,Invalid MRC401ItemData data format")
+		return errors.New("3209,Invalid MRC400 data format")
 	}
 
 	if err := stub.PutState(MRC400.Id, argdat); err != nil {
-		return errors.New("8600,Mrc401Create stub.PutState [" + MRC400.Id + "] Error " + err.Error())
+		return errors.New("8600,MRC400 stub.PutState [" + MRC400.Id + "] Error " + err.Error())
 	}
 	return nil
 }

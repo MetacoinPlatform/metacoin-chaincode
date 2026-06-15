@@ -404,6 +404,15 @@ func JSONEncode(v interface{}) string {
 	}
 }
 
+func Contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 func TradePriceCalc(mintradeunit string, unitPrice decimal.Decimal, amount decimal.Decimal) (decimal.Decimal, error) {
 	var totalPrice decimal.Decimal
 	var decimalCount int

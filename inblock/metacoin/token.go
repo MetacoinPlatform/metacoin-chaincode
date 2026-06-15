@@ -461,7 +461,6 @@ func TokenIncrease(stub shim.ChaincodeStubInterface, args []string) error {
 // 잔액 감소
 //
 // Example:
-//
 func mrc010SubtractSubBalance(stub shim.ChaincodeStubInterface,
 	wallet *mtc.TWallet, mrc010id string, amount string, SubtractType MRC010ModifyType) error {
 	var err error
@@ -889,7 +888,7 @@ func Mrc010ReqSell(stub shim.ChaincodeStubInterface, args []string) error {
 		return errors.New("3005,The total purchase amount is too low")
 	}
 
-	if commission, err = DexFeeCalc(totalPrice, dex.PlatformCommission, dex.BuyToken); err == nil {
+	if commission, err = DexFeeCalc(totalPrice, dex.PlatformCommission); err == nil {
 		totalPrice = totalPrice.Add(commission)
 	}
 	dex.BuyTotalPrice = totalPrice.String()
@@ -1428,11 +1427,11 @@ func Mrc010DexMatch(stub shim.ChaincodeStubInterface, args []string) error {
 }
 
 /*
-	Mrc010Auction
-	args arguments
-	seller, amount, mrc010id, auction_start_price, selltoken,
-	auction_bidding_unit, auction_buynow_price, auction_start_date, auction_end_date, platformName,
-	platformURL, platformAddress, platformCommission, signature, nonce
+Mrc010Auction
+args arguments
+seller, amount, mrc010id, auction_start_price, selltoken,
+auction_bidding_unit, auction_buynow_price, auction_start_date, auction_end_date, platformName,
+platformURL, platformAddress, platformCommission, signature, nonce
 */
 func Mrc010Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	var err error
@@ -1959,7 +1958,7 @@ func mrc010DexProcess(stub shim.ChaincodeStubInterface, dex TMRC010DEX, buyerWal
 
 	// 4. platform commission calc
 	if util.IsAddress(dex.PlatformAddress) {
-		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission, dex.SellToken); err == nil {
+		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission); err == nil {
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.PlatformAddress,
 				Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc010_recv_fee_platform"})
 			receiveAmount = receiveAmount.Sub(commission)
@@ -2139,7 +2138,7 @@ func mrc010DexProcessReqSell(stub shim.ChaincodeStubInterface, dex TMRC010DEX, a
 	// platform commission calc
 	commission = decimal.Zero
 	if util.IsAddress(dex.PlatformAddress) {
-		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission, paymentToken); err != nil {
+		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission); err != nil {
 			commission = decimal.Zero
 		}
 	}

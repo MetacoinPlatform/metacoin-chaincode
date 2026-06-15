@@ -107,8 +107,7 @@ type TMRC402DEX struct {
 //
 // Example :
 //
-//		mtc.MRC402, err := GetMRC402(stub, "MRC402Key")
-//
+//	mtc.MRC402, err := GetMRC402(stub, "MRC402Key")
 func GetMRC402(stub shim.ChaincodeStubInterface, mrc402id string) (TMRC402, []byte, error) {
 	var byte_data []byte
 	var err error
@@ -135,8 +134,7 @@ func GetMRC402(stub shim.ChaincodeStubInterface, mrc402id string) (TMRC402, []by
 //
 // Example :
 //
-//		err := Mrc402set(stub, mtc.MRC402, "MRC402Key", "jobtype", arguments)
-//
+//	err := Mrc402set(stub, mtc.MRC402, "MRC402Key", "jobtype", arguments)
 func setMRC402(stub shim.ChaincodeStubInterface, MRC402ItemData TMRC402, jobType string, jobArgs []string) error {
 	var err error
 	var byte_data []byte
@@ -165,8 +163,7 @@ func setMRC402(stub shim.ChaincodeStubInterface, MRC402ItemData TMRC402, jobType
 //
 // Example :
 //
-//		mtc.MRC402DEX, err := GetDEX402(stub, "MRC402Dex ITEM ID")
-//
+//	mtc.MRC402DEX, err := GetDEX402(stub, "MRC402Dex ITEM ID")
 func GetDEX402(stub shim.ChaincodeStubInterface, dexid string) (TMRC402DEX, []byte, error) {
 	var byte_data []byte
 	var err error
@@ -193,8 +190,7 @@ func GetDEX402(stub shim.ChaincodeStubInterface, dexid string) (TMRC402DEX, []by
 //
 // Example :
 //
-//		err := setDEX402(stub, mtc.MRC402DEX, "MRC402Dex ITEM ID", "jobtype", arguments)
-//
+//	err := setDEX402(stub, mtc.MRC402DEX, "MRC402Dex ITEM ID", "jobtype", arguments)
 func setDEX402(stub shim.ChaincodeStubInterface, MRC402DexItem TMRC402DEX, jobType string, jobArgs []string) error {
 	var err error
 	var byte_data []byte
@@ -250,10 +246,9 @@ func setDEX402(stub shim.ChaincodeStubInterface, MRC402DexItem TMRC402DEX, jobTy
 //
 // Example:
 //
-//     wallet.MRC402["MRC402ID"].Balance = 5
-//     err := mrc402Add(stub, wallet, "MRC402ID", "10")
-//     wallet.MRC402["MRC402ID"].Balance // output: "15"
-//
+//	wallet.MRC402["MRC402ID"].Balance = 5
+//	err := mrc402Add(stub, wallet, "MRC402ID", "10")
+//	wallet.MRC402["MRC402ID"].Balance // output: "15"
 func mrc402Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id string,
 	amount string, AddType MRC402ModifyType) error {
 	var err error
@@ -300,10 +295,9 @@ func mrc402Add(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id s
 //
 // Example:
 //
-//     wallet.MRC402["MRC402ID"].Balance = 15
-//     err := mrc402Subtract(stub, wallet, "MRC402ID", "10")
-//     wallet.MRC402["MRC402ID"].Balance // output: "5"
-//
+//	wallet.MRC402["MRC402ID"].Balance = 15
+//	err := mrc402Subtract(stub, wallet, "MRC402ID", "10")
+//	wallet.MRC402["MRC402ID"].Balance // output: "5"
 func mrc402Subtract(stub shim.ChaincodeStubInterface,
 	wallet *mtc.TWallet, mrc402id string, amount string,
 	SubtractType MRC402ModifyType) error {
@@ -353,10 +347,9 @@ func mrc402Subtract(stub shim.ChaincodeStubInterface,
 //
 // Example:
 //
-//     wallet.MRC402["MRC402ID"].Balance = 15
-//     err := mrc402Subtract(stub, wallet, "MRC402ID", "10")
-//     wallet.MRC402["MRC402ID"].Balance // output: "5"
-//
+//	wallet.MRC402["MRC402ID"].Balance = 15
+//	err := mrc402Subtract(stub, wallet, "MRC402ID", "10")
+//	wallet.MRC402["MRC402ID"].Balance // output: "5"
 func mrc402SubtractSubBalance(stub shim.ChaincodeStubInterface, wallet *mtc.TWallet, mrc402id string, amount string, SubtractType MRC402ModifyType) error {
 	var err error
 	var subtractAmount decimal.Decimal
@@ -1363,7 +1356,6 @@ func Mrc402Buy(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	dex.Buyer = args[1]
-	PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 12)
 	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Buyer, ToAddr: dex.Id,
 		Amount: buyAmount.Mul(unitPrice).String(), TokenID: dex.SellToken, TradeAmount: "", TradeID: "", PayType: "mrc402_buy"})
 	PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.Buyer,
@@ -1372,9 +1364,11 @@ func Mrc402Buy(stub shim.ChaincodeStubInterface, args []string) error {
 	return mrc402DexProcess(stub, dex, buyerWallet, PaymentInfo, MRC402MT_Sell, buyAmount.String(), args[3], args[4])
 }
 
-/* Mrc402Auction
+/*
+	Mrc402Auction
 
 args arguments
+
 	seller, amount, mrc402id, auction_start_price, selltoken,
 	auction_bidding_unit, auction_buynow_price, auction_start_date, auction_end_date, platformName,
 	platformURL, platformAddress, platformCommission, signature, nonce
@@ -1484,9 +1478,9 @@ func Mrc402Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 	if dex.AuctionEndDate <= 0 {
 		dex.AuctionEndDate = dex.AuctionStartDate + 86400
-	} else if (dex.AuctionEndDate - now) < 3600 {
+	} else if (dex.AuctionEndDate - dex.AuctionStartDate) < 3600 {
 		return errors.New("3005,Auction duration is at least 1 hour")
-	} else if (dex.AuctionEndDate - now) > 1814400 {
+	} else if (dex.AuctionEndDate - dex.AuctionStartDate) > 1814400 {
 		return errors.New("3005,The auction period is up to 7 days")
 	}
 
@@ -1564,9 +1558,11 @@ func Mrc402Auction(stub shim.ChaincodeStubInterface, args []string) error {
 	return nil
 }
 
-/* Mrc402UnAuction
+/*
+	Mrc402UnAuction
 
 args arguments
+
 	dexid, signature, nonce
 */
 func Mrc402UnAuction(stub shim.ChaincodeStubInterface, args []string) error {
@@ -1650,7 +1646,6 @@ func Mrc402AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 	var refunderAddress string
 
 	var PaymentInfo []mtc.TDexPaymentInfo
-	PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 12)
 
 	var buyNow, oldBidPrice, newBidPrice, bidUnit decimal.Decimal
 	var isBuynow bool
@@ -1797,6 +1792,7 @@ func Mrc402AuctionBid(stub shim.ChaincodeStubInterface, args []string) error {
 별도의 서명 없이 작동됩니다.
 
 args[0]:
+
 	string[40] mrc402dexid
 */
 func Mrc402AuctionFinish(stub shim.ChaincodeStubInterface, args []string) error {
@@ -1806,8 +1802,7 @@ func Mrc402AuctionFinish(stub shim.ChaincodeStubInterface, args []string) error 
 	var sellerWallet mtc.TWallet
 
 	var buyerWallet mtc.TWallet
-
-	var PaymentInfo = make([]mtc.TDexPaymentInfo, 0, 12)
+	var PaymentInfo []mtc.TDexPaymentInfo
 
 	if len(args) < 1 {
 		return errors.New("1000,mrc402auctionfinish operation must include four arguments : " +
@@ -1904,7 +1899,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 	}
 
 	// 3. creator commission calc
-	if commission, err = DexFeeCalc(paymentAmount, mrc402.CreatorCommission, dex.SellToken); err == nil {
+	if commission, err = DexFeeCalc(paymentAmount, mrc402.CreatorCommission); err == nil {
 		PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: mrc402.Creator,
 			Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc402_recv_fee_creator"})
 		receiveAmount = receiveAmount.Sub(commission)
@@ -1912,7 +1907,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 
 	// 4. platform commission calc
 	if util.IsAddress(dex.PlatformAddress) {
-		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission, dex.SellToken); err == nil {
+		if commission, err = DexFeeCalc(paymentAmount, dex.PlatformCommission); err == nil {
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: dex.PlatformAddress,
 				Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc402_recv_fee_platform"})
 			receiveAmount = receiveAmount.Sub(commission)
@@ -1921,7 +1916,7 @@ func mrc402DexProcess(stub shim.ChaincodeStubInterface, dex TMRC402DEX, buyerWal
 
 	// 5. shareholder commission calc
 	for shareholderAddress, shcomm := range mrc402.ShareHolder {
-		if commission, err = DexFeeCalc(paymentAmount, shcomm, dex.SellToken); err == nil {
+		if commission, err = DexFeeCalc(paymentAmount, shcomm); err == nil {
 			PaymentInfo = append(PaymentInfo, mtc.TDexPaymentInfo{FromAddr: dex.Id, ToAddr: shareholderAddress,
 				Amount: commission.String(), TokenID: dex.SellToken, PayType: "mrc402_recv_fee_shareholder"})
 			receiveAmount = receiveAmount.Sub(commission)

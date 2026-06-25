@@ -318,13 +318,13 @@ func Mrc400Create(stub shim.ChaincodeStubInterface, args []string) (string, erro
 	}
 
 	// 2 url
-	if err = util.DataAssign(args[2], &MRC400.URL, "url", 1, 1024, false); err != nil {
-		return "", errors.New("3005,Url must be 1 to 1024 characters long URL")
+	if err = util.DataAssign(args[2], &MRC400.URL, "url", 1, 255, false); err != nil {
+		return "", errors.New("3005,Url must be 1 to 255 characters long URL")
 	}
 
 	// 3 image url
 	if err = util.DataAssign(args[3], &MRC400.ImageURL, "url", 1, 255, false); err != nil {
-		return "", errors.New("3005,ImageURL must be 1 to 1024 characters long URL")
+		return "", errors.New("3005,ImageURL must be 1 to 255 characters long URL")
 	}
 
 	// 4 allow token
@@ -339,12 +339,12 @@ func Mrc400Create(stub shim.ChaincodeStubInterface, args []string) (string, erro
 
 	// 5 item data url
 	if err = util.DataAssign(args[5], &MRC400.ItemURL, "url", 1, 255, true); err != nil {
-		return "", errors.New("3005,ItemURL must be 1 to 1024 characters long URL")
+		return "", errors.New("3005,ItemURL must be 1 to 255 characters long URL")
 	}
 
 	// 6 item image url
 	if err = util.DataAssign(args[6], &MRC400.ItemImageURL, "url", 1, 255, true); err != nil {
-		return "", errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
+		return "", errors.New("3005,ItemImageURL must be 1 to 255 characters long URL")
 	}
 
 	// 7 category
@@ -461,13 +461,13 @@ func Mrc400Update(stub shim.ChaincodeStubInterface, args []string) error {
 	}
 
 	// 2 url
-	if err = util.DataAssign(args[2], &MRC400.URL, "url", 1, 1024, false); err != nil {
-		return errors.New("3005,Url must be 1 to 1024 characters long URL")
+	if err = util.DataAssign(args[2], &MRC400.URL, "url", 1, 255, false); err != nil {
+		return errors.New("3005,Url must be 1 to 255 characters long URL")
 	}
 
 	// 3 image url
 	if err = util.DataAssign(args[3], &MRC400.ImageURL, "url", 1, 255, false); err != nil {
-		return errors.New("3005,ImageURL must be 1 to 1024 characters long URL")
+		return errors.New("3005,ImageURL must be 1 to 255 characters long URL")
 	}
 
 	// 4 allow token
@@ -484,12 +484,12 @@ func Mrc400Update(stub shim.ChaincodeStubInterface, args []string) error {
 
 	// 5 item data url
 	if err = util.DataAssign(args[5], &MRC400.ItemURL, "url", 0, 255, false); err != nil {
-		return errors.New("3005,ItemURL must be 1 to 1024 characters long URL")
+		return errors.New("3005,ItemURL must be 1 to 255 characters long URL")
 	}
 
 	// 6 item image url
 	if err = util.DataAssign(args[6], &MRC400.ItemImageURL, "url", 0, 255, false); err != nil {
-		return errors.New("3005,ItemImageURL must be 1 to 1024 characters long URL")
+		return errors.New("3005,ItemImageURL must be 1 to 255 characters long URL")
 	}
 
 	// 7 category
